@@ -1,6 +1,6 @@
 import type { Page, Session } from "@/App";
 import type {
-  Failure,
+  FailureWithProject as Failure,
   HseRecord,
   MaintenancePlan,
   Project,

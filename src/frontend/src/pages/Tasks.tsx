@@ -35,7 +35,14 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useActor } from "@/hooks/useActor";
-import { ChevronDown, ClipboardList, Loader2, Plus } from "lucide-react";
+import {
+  ChevronDown,
+  ClipboardList,
+  Loader2,
+  Pencil,
+  Plus,
+  Trash2,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -75,6 +82,12 @@ export default function Tasks({ session }: Props) {
   const [submitting, setSubmitting] = useState(false);
   const [filterProject, setFilterProject] = useState<string>("all");
 
+  // Edit dialog state
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [editStatus, setEditStatus] = useState("");
+  const [editSubmitting, setEditSubmitting] = useState(false);
+
   const [form, setForm] = useState({
     title: "",
     projectId: "",
@@ -91,7 +104,6 @@ export default function Tasks({ session }: Props) {
       const projs: Project[] = await api.listProjects(session.companyId);
       setProjects(projs);
 
-      // Load tasks for all projects
       const taskArrays = await Promise.all(
         projs.map((p) => api.listTasks(p.id) as Promise<Task[]>),
       );
@@ -147,10 +159,47 @@ export default function Tasks({ session }: Props) {
         prev.map((t) => (t.id === task.id ? { ...t, status } : t)),
       );
     } catch {
-      // Optimistic update even if backend call fails with unimplemented
       setTasks((prev) =>
         prev.map((t) => (t.id === task.id ? { ...t, status } : t)),
       );
+    }
+  };
+
+  const handleOpenEdit = (task: Task) => {
+    setEditingTask(task);
+    setEditStatus(task.status);
+    setEditDialogOpen(true);
+  };
+
+  const handleEditSave = async () => {
+    if (!editingTask || !api) return;
+    setEditSubmitting(true);
+    try {
+      await api.updateTaskStatus(String(editingTask.id), editStatus);
+      setTasks((prev) =>
+        prev.map((t) =>
+          t.id === editingTask.id ? { ...t, status: editStatus } : t,
+        ),
+      );
+      toast.success("Görev güncellendi.");
+      setEditDialogOpen(false);
+    } catch {
+      toast.error("Güncelleme sırasında hata oluştu.");
+    } finally {
+      setEditSubmitting(false);
+    }
+  };
+
+  const handleDelete = async (task: Task) => {
+    if (!window.confirm("Bu görevi silmek istediğinizden emin misiniz?"))
+      return;
+    if (!api) return;
+    try {
+      await api.deleteTask(BigInt(task.id));
+      setTasks((prev) => prev.filter((t) => t.id !== task.id));
+      toast.success("Görev silindi.");
+    } catch {
+      toast.error("Görev silinirken hata oluştu.");
     }
   };
 
@@ -279,6 +328,76 @@ export default function Tasks({ session }: Props) {
         </Dialog>
       </div>
 
+      {/* Edit Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent
+          aria-describedby="edit-task-desc"
+          data-ocid="tasks.edit.dialog"
+        >
+          <DialogHeader>
+            <DialogTitle
+              style={{ fontFamily: "'Bricolage Grotesque', sans-serif" }}
+            >
+              Görevi Düzenle
+            </DialogTitle>
+            <DialogDescription id="edit-task-desc">
+              {editingTask?.title} — durum güncelleme
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="bg-muted/40 rounded-lg p-3 space-y-1">
+              <p className="text-xs text-muted-foreground">Görev</p>
+              <p className="font-medium">{editingTask?.title}</p>
+              <p className="text-xs text-muted-foreground">
+                Proje:{" "}
+                {editingTask
+                  ? (projectMap[editingTask.projectId] ?? editingTask.projectId)
+                  : "—"}
+              </p>
+              {editingTask?.dueDate && (
+                <p className="text-xs text-muted-foreground">
+                  Son Tarih: {editingTask.dueDate}
+                </p>
+              )}
+            </div>
+            <div className="space-y-1.5">
+              <Label>Durum</Label>
+              <Select value={editStatus} onValueChange={setEditStatus}>
+                <SelectTrigger data-ocid="tasks.edit.select">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {statusOptions.map((s) => (
+                    <SelectItem key={s.value} value={s.value}>
+                      {s.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setEditDialogOpen(false)}
+              data-ocid="tasks.edit.cancel_button"
+            >
+              İptal
+            </Button>
+            <Button
+              onClick={handleEditSave}
+              disabled={editSubmitting}
+              data-ocid="tasks.edit.save_button"
+            >
+              {editSubmitting ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : null}
+              {editSubmitting ? "Kaydediliyor..." : "Kaydet"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Summary cards */}
       <div className="grid grid-cols-3 gap-3">
         {Object.entries(statusConfig).map(([key, { label }]) => (
@@ -376,28 +495,52 @@ export default function Tasks({ session }: Props) {
                       </span>
                     </TableCell>
                     <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="text-xs"
-                            data-ocid={`tasks.status.${idx + 1}`}
-                          >
-                            Durum <ChevronDown className="w-3 h-3 ml-1" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent>
-                          {statusOptions.map((s) => (
-                            <DropdownMenuItem
-                              key={s.value}
-                              onClick={() => handleStatusChange(task, s.value)}
+                      <div className="flex items-center gap-1">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="text-xs"
+                              data-ocid={`tasks.status.${idx + 1}`}
                             >
-                              {s.label}
-                            </DropdownMenuItem>
-                          ))}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                              Durum <ChevronDown className="w-3 h-3 ml-1" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent>
+                            {statusOptions.map((s) => (
+                              <DropdownMenuItem
+                                key={s.value}
+                                onClick={() =>
+                                  handleStatusChange(task, s.value)
+                                }
+                              >
+                                {s.label}
+                              </DropdownMenuItem>
+                            ))}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-xs px-2"
+                          onClick={() => handleOpenEdit(task)}
+                          data-ocid={`tasks.edit_button.${idx + 1}`}
+                          title="Düzenle"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-xs px-2 text-red-600 hover:text-red-700 hover:bg-red-50"
+                          onClick={() => handleDelete(task)}
+                          data-ocid={`tasks.delete_button.${idx + 1}`}
+                          title="Sil"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 );

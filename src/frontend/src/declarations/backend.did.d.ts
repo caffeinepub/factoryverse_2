@@ -19,6 +19,42 @@ export interface AuthenticatedUser {
 export type Code = string;
 export type CompanyId = string;
 export type DeadLine = string;
+export interface Document {
+  'id' : DocumentId,
+  'title' : string,
+  'createdAt' : Timestamp,
+  'fileName' : string,
+  'category' : string,
+  'uploadedBy' : string,
+  'companyId' : CompanyId,
+}
+export type DocumentId = string;
+export type FailureId = string;
+export interface FailureWithProject {
+  'id' : FailureId,
+  'status' : string,
+  'title' : string,
+  'description' : string,
+  'reportedAt' : Timestamp,
+  'reportedBy' : string,
+  'projectId' : string,
+  'severity' : string,
+  'machineId' : MachineId,
+  'resolvedAt' : string,
+  'companyId' : CompanyId,
+}
+export type HseId = string;
+export interface HseRecord {
+  'id' : HseId,
+  'status' : string,
+  'title' : string,
+  'hseType' : string,
+  'createdAt' : Timestamp,
+  'description' : string,
+  'reportedBy' : string,
+  'severity' : string,
+  'companyId' : CompanyId,
+}
 export interface Machine {
   'id' : MachineId,
   'status' : string,
@@ -31,6 +67,28 @@ export interface Machine {
   'companyId' : CompanyId,
 }
 export type MachineId = string;
+export interface MaintenancePlan {
+  'id' : MaintenancePlanId,
+  'status' : string,
+  'title' : string,
+  'assignedTo' : string,
+  'createdAt' : Timestamp,
+  'description' : string,
+  'frequency' : string,
+  'machineId' : string,
+  'nextDate' : string,
+  'companyId' : CompanyId,
+}
+export type MaintenancePlanId = string;
+export interface Personnel {
+  'id' : PersonnelId,
+  'loginCode' : Code,
+  'name' : string,
+  'createdAt' : Timestamp,
+  'role' : string,
+  'inviteCode' : Code,
+  'companyId' : [] | [CompanyId],
+}
 export type PersonnelId = string;
 export interface Project {
   'id' : ProjectId,
@@ -41,7 +99,45 @@ export interface Project {
   'deadline' : string,
   'companyId' : CompanyId,
 }
+export interface ProjectAssignment {
+  'id' : ProjectAssignmentId,
+  'assignedAt' : Timestamp,
+  'role' : string,
+  'personnelId' : PersonnelId,
+  'projectId' : ProjectId,
+  'personnelName' : string,
+  'companyId' : CompanyId,
+}
+export type ProjectAssignmentId = string;
+export interface ProjectCost {
+  'id' : ProjectCostId,
+  'title' : string,
+  'createdAt' : Timestamp,
+  'createdBy' : string,
+  'description' : string,
+  'projectId' : ProjectId,
+  'currency' : string,
+  'category' : string,
+  'amount' : number,
+  'companyId' : CompanyId,
+}
+export type ProjectCostId = string;
 export type ProjectId = string;
+export interface Shipment {
+  'id' : ShipmentId,
+  'status' : string,
+  'title' : string,
+  'shipDate' : string,
+  'createdAt' : Timestamp,
+  'estimatedDelivery' : string,
+  'toLocation' : string,
+  'fromLocation' : string,
+  'notes' : string,
+  'carrier' : string,
+  'machineId' : string,
+  'companyId' : CompanyId,
+}
+export type ShipmentId = string;
 export interface Task {
   'id' : TaskId,
   'status' : string,
@@ -62,106 +158,84 @@ export interface UserProfile {
 export type UserRole = { 'admin' : null } |
   { 'user' : null } |
   { 'guest' : null };
-export interface Failure {
-  'id' : string,
-  'machineId' : string,
-  'companyId' : CompanyId,
-  'title' : string,
-  'description' : string,
-  'severity' : string,
-  'status' : string,
-  'reportedBy' : string,
-  'reportedAt' : Timestamp,
-  'resolvedAt' : string,
-}
-export interface FailureWithProject {
-  'id' : string,
-  'machineId' : string,
-  'companyId' : CompanyId,
-  'title' : string,
-  'description' : string,
-  'severity' : string,
-  'status' : string,
-  'reportedBy' : string,
-  'reportedAt' : Timestamp,
-  'resolvedAt' : string,
-  'projectId' : string,
-}
-export interface Document {
-  'id' : string,
-  'companyId' : CompanyId,
-  'title' : string,
-  'fileName' : string,
-  'category' : string,
-  'uploadedBy' : string,
-  'createdAt' : Timestamp,
-}
-export interface HseRecord {
-  'id' : string,
-  'companyId' : CompanyId,
-  'hseType' : string,
-  'title' : string,
-  'description' : string,
-  'severity' : string,
-  'status' : string,
-  'reportedBy' : string,
-  'createdAt' : Timestamp,
-}
-export interface Shipment {
-  'id' : string,
-  'companyId' : CompanyId,
-  'title' : string,
-  'machineId' : string,
-  'fromLocation' : string,
-  'toLocation' : string,
-  'carrier' : string,
-  'status' : string,
-  'shipDate' : string,
-  'estimatedDelivery' : string,
-  'notes' : string,
-  'createdAt' : Timestamp,
-}
 export interface _SERVICE {
   '_initializeAccessControlWithSecret' : ActorMethod<[string], undefined>,
+  'addDocument' : ActorMethod<[string, string, string, string, string], string>,
+  'addFailure' : ActorMethod<
+    [string, string, string, string, string, string, string],
+    string
+  >,
+  'addHseRecord' : ActorMethod<
+    [string, string, string, string, string, string],
+    string
+  >,
   'addMachine' : ActorMethod<
     [string, string, string, string, string, string],
     string
   >,
+  'addMaintenancePlan' : ActorMethod<
+    [string, string, string, string, string, string, string],
+    string
+  >,
   'addPersonnelToCompany' : ActorMethod<[Code, Code, string], undefined>,
+  'addProjectCost' : ActorMethod<
+    [string, string, string, string, number, string, string, string],
+    string
+  >,
+  'addShipment' : ActorMethod<
+    [string, string, string, string, string, string, string, string, string],
+    string
+  >,
   'addTask' : ActorMethod<[string, string, string, string, string], bigint>,
   'assignCallerUserRole' : ActorMethod<[Principal, UserRole], undefined>,
+  'assignPersonnelToProject' : ActorMethod<
+    [string, string, string, string],
+    string
+  >,
   'authenticate' : ActorMethod<[Code], [] | [AuthenticatedUser]>,
   'createProject' : ActorMethod<[string, string, string, string], string>,
+  'deleteDocument' : ActorMethod<[string], undefined>,
+  'deleteMachine' : ActorMethod<[string], undefined>,
+  'deleteProjectCost' : ActorMethod<[string], undefined>,
+  'deleteTask' : ActorMethod<[bigint], undefined>,
   'getCallerUserProfile' : ActorMethod<[], [] | [UserProfile]>,
   'getCallerUserRole' : ActorMethod<[], UserRole>,
+  'getFailureMaintenance' : ActorMethod<[string], string>,
   'getUserProfile' : ActorMethod<[Principal], [] | [UserProfile]>,
   'isCallerAdmin' : ActorMethod<[], boolean>,
+  'linkFailureMaintenance' : ActorMethod<[string, string], undefined>,
+  'listCompanyPersonnel' : ActorMethod<[string], Array<Personnel>>,
+  'listDocuments' : ActorMethod<[string], Array<Document>>,
+  'listFailures' : ActorMethod<[string], Array<FailureWithProject>>,
+  'listHseRecords' : ActorMethod<[string], Array<HseRecord>>,
   'listMachines' : ActorMethod<[string], Array<Machine>>,
+  'listMaintenancePlans' : ActorMethod<[string], Array<MaintenancePlan>>,
+  'listProjectAssignments' : ActorMethod<[string], Array<ProjectAssignment>>,
+  'listProjectCosts' : ActorMethod<[string], Array<ProjectCost>>,
   'listProjects' : ActorMethod<[string], Array<Project>>,
-  'updateProjectStatus': ActorMethod<[string, string], undefined>,
+  'listShipments' : ActorMethod<[string], Array<Shipment>>,
   'listTasks' : ActorMethod<[string], Array<Task>>,
   'registerCompany' : ActorMethod<
     [string, string],
     { 'id' : CompanyId, 'adminCode' : Code }
   >,
+  'removePersonnelFromProject' : ActorMethod<[string], undefined>,
   'saveCallerUserProfile' : ActorMethod<[UserProfile], undefined>,
   'selfRegisterPersonnel' : ActorMethod<
     [string, string],
     { 'loginCode' : Code, 'inviteCode' : Code }
   >,
-  'updateMachineStatus' : ActorMethod<[string, string], undefined>,
-  'addFailure' : ActorMethod<[string, string, string, string, string, string, string], string>,
-  'listFailures' : ActorMethod<[string], Array<FailureWithProject>>,
   'updateFailureStatus' : ActorMethod<[string, string], undefined>,
-  'addDocument' : ActorMethod<[string, string, string, string, string], string>,
-  'listDocuments' : ActorMethod<[string], Array<Document>>,
-  'deleteDocument' : ActorMethod<[string], undefined>,
-  'addHseRecord' : ActorMethod<[string, string, string, string, string, string], string>,
-  'listHseRecords' : ActorMethod<[string], Array<HseRecord>>,
   'updateHseStatus' : ActorMethod<[string, string], undefined>,
-  'addShipment' : ActorMethod<[string, string, string, string, string, string, string, string, string], string>,
-  'listShipments' : ActorMethod<[string], Array<Shipment>>,
+  'updateMachine' : ActorMethod<
+    [string, string, string, string, string, string],
+    undefined
+  >,
+  'updateMachineStatus' : ActorMethod<[string, string], undefined>,
+  'updateMaintenancePlanStatus' : ActorMethod<[string, string], undefined>,
+  'updateProjectStatus' : ActorMethod<[string, string], undefined>,
   'updateShipmentStatus' : ActorMethod<[string, string], undefined>,
+  'updateTaskStatus' : ActorMethod<[bigint, string], undefined>,
 }
 export declare const idlService: IDL.ServiceClass;
 export declare const idlInitArgs: IDL.Type[];

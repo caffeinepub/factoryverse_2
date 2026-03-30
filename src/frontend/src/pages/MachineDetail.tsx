@@ -1,5 +1,10 @@
 import type { Page, Session } from "@/App";
-import type { Failure, Machine, MaintenancePlan, Shipment } from "@/backend.d";
+import type {
+  FailureWithProject as Failure,
+  Machine,
+  MaintenancePlan,
+  Shipment,
+} from "@/backend.d";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";

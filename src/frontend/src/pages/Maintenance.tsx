@@ -36,7 +36,7 @@ import {
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { useActor } from "@/hooks/useActor";
-import { ChevronDown, Loader2, Plus, Wrench } from "lucide-react";
+import { ChevronDown, Link2, Loader2, Plus, Wrench } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -47,6 +47,16 @@ interface Props {
 interface Project {
   id: string;
   name: string;
+}
+
+interface MaintenancePlan {
+  id: string;
+  title: string;
+  machineId: string;
+  period: string;
+  nextDate: string;
+  responsibleId: string;
+  status: string;
 }
 
 const severityConfig: Record<string, { label: string; cls: string }> = {
@@ -86,6 +96,19 @@ export default function Maintenance({ session }: Props) {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+
+  // Bakım bağlama state
+  const [linkDialogOpen, setLinkDialogOpen] = useState(false);
+  const [linkingFailure, setLinkingFailure] = useState<Failure | null>(null);
+  const [maintenancePlans, setMaintenancePlans] = useState<MaintenancePlan[]>(
+    [],
+  );
+  const [plansLoading, setPlansLoading] = useState(false);
+  const [selectedPlanId, setSelectedPlanId] = useState("");
+  const [linkSubmitting, setLinkSubmitting] = useState(false);
+  const [linkedFailures, setLinkedFailures] = useState<Record<string, string>>(
+    {},
+  );
 
   const [form, setForm] = useState({
     title: "",
@@ -169,6 +192,41 @@ export default function Maintenance({ session }: Props) {
       );
     } catch {
       toast.error("Durum güncellenirken hata oluştu.");
+    }
+  };
+
+  const handleOpenLinkDialog = async (failure: Failure) => {
+    setLinkingFailure(failure);
+    setSelectedPlanId("");
+    setLinkDialogOpen(true);
+    setPlansLoading(true);
+    try {
+      const plans = (await api.listMaintenancePlans(
+        session.companyId,
+      )) as MaintenancePlan[];
+      setMaintenancePlans(plans);
+    } catch {
+      toast.error("Bakım planları yüklenemedi.");
+    } finally {
+      setPlansLoading(false);
+    }
+  };
+
+  const handleLinkSubmit = async () => {
+    if (!linkingFailure || !selectedPlanId || !api) return;
+    setLinkSubmitting(true);
+    try {
+      await api.linkFailureMaintenance(linkingFailure.id, selectedPlanId);
+      setLinkedFailures((prev) => ({
+        ...prev,
+        [linkingFailure.id]: selectedPlanId,
+      }));
+      toast.success("Bakım planı bağlandı!");
+      setLinkDialogOpen(false);
+    } catch {
+      toast.error("Bağlama sırasında hata oluştu.");
+    } finally {
+      setLinkSubmitting(false);
     }
   };
 
@@ -337,6 +395,77 @@ export default function Maintenance({ session }: Props) {
         </Dialog>
       </div>
 
+      {/* Bakım Bağlama Dialog */}
+      <Dialog open={linkDialogOpen} onOpenChange={setLinkDialogOpen}>
+        <DialogContent
+          aria-describedby="link-maint-desc"
+          data-ocid="maintenance.link.dialog"
+        >
+          <DialogHeader>
+            <DialogTitle
+              style={{ fontFamily: "'Bricolage Grotesque', sans-serif" }}
+            >
+              Bakım Planı Bağla
+            </DialogTitle>
+            <DialogDescription id="link-maint-desc">
+              "{linkingFailure?.title}" arızasına bir bakım planı bağlayın.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            {plansLoading ? (
+              <div
+                className="flex items-center justify-center py-6"
+                data-ocid="maintenance.link.loading_state"
+              >
+                <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+              </div>
+            ) : maintenancePlans.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-4">
+                Henüz bakım planı bulunmuyor.
+              </p>
+            ) : (
+              <div className="space-y-1.5">
+                <Label>Bakım Planı Seçin</Label>
+                <Select
+                  value={selectedPlanId}
+                  onValueChange={setSelectedPlanId}
+                >
+                  <SelectTrigger data-ocid="maintenance.link.select">
+                    <SelectValue placeholder="Plan seçin" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {maintenancePlans.map((plan) => (
+                      <SelectItem key={plan.id} value={plan.id}>
+                        {plan.title} — {plan.machineId || "Genel"}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setLinkDialogOpen(false)}
+              data-ocid="maintenance.link.cancel_button"
+            >
+              İptal
+            </Button>
+            <Button
+              onClick={handleLinkSubmit}
+              disabled={!selectedPlanId || linkSubmitting}
+              data-ocid="maintenance.link.confirm_button"
+            >
+              {linkSubmitting ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : null}
+              {linkSubmitting ? "Bağlanıyor..." : "Bağla"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {loading ? (
         <div
           className="flex items-center justify-center h-40"
@@ -366,7 +495,7 @@ export default function Maintenance({ session }: Props) {
                 <TableHead>Durum</TableHead>
                 <TableHead className="hidden md:table-cell">Bildiren</TableHead>
                 <TableHead className="hidden md:table-cell">Tarih</TableHead>
-                <TableHead className="w-28">İşlemler</TableHead>
+                <TableHead className="w-36">İşlemler</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -380,12 +509,22 @@ export default function Maintenance({ session }: Props) {
                   cls: "bg-gray-100 text-gray-600 border-gray-200",
                 };
                 const projName = getProjectName(f.projectId);
+                const isLinked = !!linkedFailures[f.id];
                 return (
                   <TableRow
                     key={f.id}
                     data-ocid={`maintenance.item.${idx + 1}`}
                   >
-                    <TableCell className="font-medium">{f.title}</TableCell>
+                    <TableCell className="font-medium">
+                      <div className="flex items-center gap-1.5">
+                        {f.title}
+                        {isLinked && (
+                          <span className="text-xs px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700 font-medium">
+                            Bakıma Bağlı
+                          </span>
+                        )}
+                      </div>
+                    </TableCell>
                     <TableCell className="hidden md:table-cell text-muted-foreground">
                       {f.machineId || "—"}
                     </TableCell>
@@ -419,28 +558,42 @@ export default function Maintenance({ session }: Props) {
                       {formatDate(f.reportedAt)}
                     </TableCell>
                     <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="text-xs"
-                            data-ocid={`maintenance.status.${idx + 1}`}
-                          >
-                            Durum <ChevronDown className="w-3 h-3 ml-1" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent>
-                          {statusOptions.map((s) => (
-                            <DropdownMenuItem
-                              key={s.value}
-                              onClick={() => handleStatusChange(f.id, s.value)}
+                      <div className="flex items-center gap-1">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="text-xs"
+                              data-ocid={`maintenance.status.${idx + 1}`}
                             >
-                              {s.label}
-                            </DropdownMenuItem>
-                          ))}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                              Durum <ChevronDown className="w-3 h-3 ml-1" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent>
+                            {statusOptions.map((s) => (
+                              <DropdownMenuItem
+                                key={s.value}
+                                onClick={() =>
+                                  handleStatusChange(f.id, s.value)
+                                }
+                              >
+                                {s.label}
+                              </DropdownMenuItem>
+                            ))}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-xs px-2"
+                          onClick={() => handleOpenLinkDialog(f)}
+                          data-ocid={`maintenance.link_button.${idx + 1}`}
+                          title="Bakım Planı Bağla"
+                        >
+                          <Link2 className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 );

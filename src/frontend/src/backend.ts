@@ -91,6 +91,98 @@ export class ExternalBlob {
 }
 export type PersonnelId = string;
 export type Timestamp = bigint;
+export interface Shipment {
+    id: ShipmentId;
+    status: string;
+    title: string;
+    shipDate: string;
+    createdAt: Timestamp;
+    estimatedDelivery: string;
+    toLocation: string;
+    fromLocation: string;
+    notes: string;
+    carrier: string;
+    machineId: string;
+    companyId: CompanyId;
+}
+export type MaintenancePlanId = string;
+export interface Document {
+    id: DocumentId;
+    title: string;
+    createdAt: Timestamp;
+    fileName: string;
+    category: string;
+    uploadedBy: string;
+    companyId: CompanyId;
+}
+export interface Task {
+    id: TaskId;
+    status: string;
+    title: string;
+    assigneeId: AssigneeId;
+    dueDate: DeadLine;
+    projectId: ProjectId;
+    companyId: CompanyId;
+}
+export interface ProjectCost {
+    id: ProjectCostId;
+    title: string;
+    createdAt: Timestamp;
+    createdBy: string;
+    description: string;
+    projectId: ProjectId;
+    currency: string;
+    category: string;
+    amount: number;
+    companyId: CompanyId;
+}
+export type ProjectAssignmentId = string;
+export interface ProjectAssignment {
+    id: ProjectAssignmentId;
+    assignedAt: Timestamp;
+    role: string;
+    personnelId: PersonnelId;
+    projectId: ProjectId;
+    personnelName: string;
+    companyId: CompanyId;
+}
+export type FailureId = string;
+export type Code = string;
+export type DocumentId = string;
+export interface FailureWithProject {
+    id: FailureId;
+    status: string;
+    title: string;
+    description: string;
+    reportedAt: Timestamp;
+    reportedBy: string;
+    projectId: string;
+    severity: string;
+    machineId: MachineId;
+    resolvedAt: string;
+    companyId: CompanyId;
+}
+export interface Personnel {
+    id: PersonnelId;
+    loginCode: Code;
+    name: string;
+    createdAt: Timestamp;
+    role: string;
+    inviteCode: Code;
+    companyId?: CompanyId;
+}
+export interface HseRecord {
+    id: HseId;
+    status: string;
+    title: string;
+    hseType: string;
+    createdAt: Timestamp;
+    description: string;
+    reportedBy: string;
+    severity: string;
+    companyId: CompanyId;
+}
+export type AssigneeId = string;
 export type MachineId = string;
 export interface Machine {
     id: MachineId;
@@ -103,23 +195,27 @@ export interface Machine {
     machineType: string;
     companyId: CompanyId;
 }
-export interface Task {
-    id: TaskId;
-    status: string;
-    title: string;
-    assigneeId: AssigneeId;
-    dueDate: DeadLine;
-    projectId: ProjectId;
-    companyId: CompanyId;
-}
+export type ShipmentId = string;
 export type CompanyId = string;
 export interface AuthenticatedUser {
     role?: string;
     personnelId?: PersonnelId;
     companyId?: CompanyId;
 }
+export interface MaintenancePlan {
+    id: MaintenancePlanId;
+    status: string;
+    title: string;
+    assignedTo: string;
+    createdAt: Timestamp;
+    description: string;
+    frequency: string;
+    machineId: string;
+    nextDate: string;
+    companyId: CompanyId;
+}
+export type HseId = string;
 export type TaskId = bigint;
-export type Code = string;
 export type ProjectId = string;
 export interface Project {
     id: ProjectId;
@@ -131,13 +227,13 @@ export interface Project {
     companyId: CompanyId;
 }
 export type DeadLine = string;
+export type ProjectCostId = string;
 export interface UserProfile {
     name: string;
     email: string;
     personnelId?: PersonnelId;
     companyId?: CompanyId;
 }
-export type AssigneeId = string;
 export enum UserRole {
     admin = "admin",
     user = "user",
@@ -145,31 +241,60 @@ export enum UserRole {
 }
 export interface backendInterface {
     _initializeAccessControlWithSecret(userSecret: string): Promise<void>;
+    addDocument(companyId: string, title: string, fileName: string, category: string, uploadedBy: string): Promise<string>;
+    addFailure(machineId: string, companyId: string, title: string, description: string, severity: string, reportedBy: string, projectId: string): Promise<string>;
+    addHseRecord(companyId: string, hseType: string, title: string, description: string, severity: string, reportedBy: string): Promise<string>;
     addMachine(companyId: string, name: string, machineType: string, serialNumber: string, location: string, notes: string): Promise<string>;
+    addMaintenancePlan(companyId: string, machineId: string, title: string, description: string, frequency: string, nextDate: string, assignedTo: string): Promise<string>;
     addPersonnelToCompany(adminCode: Code, inviteCode: Code, role: string): Promise<void>;
+    addProjectCost(companyId: string, projectId: string, title: string, category: string, amount: number, currency: string, description: string, createdBy: string): Promise<string>;
+    addShipment(companyId: string, title: string, machineId: string, fromLocation: string, toLocation: string, carrier: string, shipDate: string, estimatedDelivery: string, notes: string): Promise<string>;
     addTask(projectId: string, companyId: string, title: string, assigneeId: string, dueDate: string): Promise<bigint>;
     assignCallerUserRole(user: Principal, role: UserRole): Promise<void>;
+    assignPersonnelToProject(companyId: string, projectId: string, personnelId: string, role: string): Promise<string>;
     authenticate(code: Code): Promise<AuthenticatedUser | null>;
     createProject(companyId: string, name: string, description: string, deadline: string): Promise<string>;
+    deleteDocument(documentId: string): Promise<void>;
+    deleteMachine(machineId: string): Promise<void>;
+    deleteProjectCost(costId: string): Promise<void>;
+    deleteTask(taskId: bigint): Promise<void>;
     getCallerUserProfile(): Promise<UserProfile | null>;
     getCallerUserRole(): Promise<UserRole>;
+    getFailureMaintenance(failureId: string): Promise<string>;
     getUserProfile(user: Principal): Promise<UserProfile | null>;
     isCallerAdmin(): Promise<boolean>;
+    linkFailureMaintenance(failureId: string, maintenancePlanId: string): Promise<void>;
+    listCompanyPersonnel(companyId: string): Promise<Array<Personnel>>;
+    listDocuments(companyId: string): Promise<Array<Document>>;
+    listFailures(companyId: string): Promise<Array<FailureWithProject>>;
+    listHseRecords(companyId: string): Promise<Array<HseRecord>>;
     listMachines(companyId: string): Promise<Array<Machine>>;
+    listMaintenancePlans(companyId: string): Promise<Array<MaintenancePlan>>;
+    listProjectAssignments(projectId: string): Promise<Array<ProjectAssignment>>;
+    listProjectCosts(companyId: string): Promise<Array<ProjectCost>>;
     listProjects(companyId: string): Promise<Array<Project>>;
+    listShipments(companyId: string): Promise<Array<Shipment>>;
     listTasks(projectId: string): Promise<Array<Task>>;
     registerCompany(name: string, mode: string): Promise<{
         id: CompanyId;
         adminCode: Code;
     }>;
+    removePersonnelFromProject(assignmentId: string): Promise<void>;
     saveCallerUserProfile(profile: UserProfile): Promise<void>;
     selfRegisterPersonnel(name: string, role: string): Promise<{
         loginCode: Code;
         inviteCode: Code;
     }>;
+    updateFailureStatus(failureId: string, status: string): Promise<void>;
+    updateHseStatus(hseId: string, status: string): Promise<void>;
+    updateMachine(machineId: string, name: string, machineType: string, serialNumber: string, location: string, notes: string): Promise<void>;
     updateMachineStatus(machineId: string, status: string): Promise<void>;
+    updateMaintenancePlanStatus(planId: string, status: string): Promise<void>;
+    updateProjectStatus(projectId: string, status: string): Promise<void>;
+    updateShipmentStatus(shipmentId: string, status: string): Promise<void>;
+    updateTaskStatus(taskId: bigint, status: string): Promise<void>;
 }
-import type { AuthenticatedUser as _AuthenticatedUser, CompanyId as _CompanyId, PersonnelId as _PersonnelId, UserProfile as _UserProfile, UserRole as _UserRole } from "./declarations/backend.did.d.ts";
+import type { AuthenticatedUser as _AuthenticatedUser, Code as _Code, CompanyId as _CompanyId, Personnel as _Personnel, PersonnelId as _PersonnelId, Timestamp as _Timestamp, UserProfile as _UserProfile, UserRole as _UserRole } from "./declarations/backend.did.d.ts";
 export class Backend implements backendInterface {
     constructor(private actor: ActorSubclass<_SERVICE>, private _uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, private _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, private processError?: (error: unknown) => never){}
     async _initializeAccessControlWithSecret(arg0: string): Promise<void> {
@@ -183,6 +308,48 @@ export class Backend implements backendInterface {
             }
         } else {
             const result = await this.actor._initializeAccessControlWithSecret(arg0);
+            return result;
+        }
+    }
+    async addDocument(arg0: string, arg1: string, arg2: string, arg3: string, arg4: string): Promise<string> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.addDocument(arg0, arg1, arg2, arg3, arg4);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.addDocument(arg0, arg1, arg2, arg3, arg4);
+            return result;
+        }
+    }
+    async addFailure(arg0: string, arg1: string, arg2: string, arg3: string, arg4: string, arg5: string, arg6: string): Promise<string> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.addFailure(arg0, arg1, arg2, arg3, arg4, arg5, arg6);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.addFailure(arg0, arg1, arg2, arg3, arg4, arg5, arg6);
+            return result;
+        }
+    }
+    async addHseRecord(arg0: string, arg1: string, arg2: string, arg3: string, arg4: string, arg5: string): Promise<string> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.addHseRecord(arg0, arg1, arg2, arg3, arg4, arg5);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.addHseRecord(arg0, arg1, arg2, arg3, arg4, arg5);
             return result;
         }
     }
@@ -200,6 +367,20 @@ export class Backend implements backendInterface {
             return result;
         }
     }
+    async addMaintenancePlan(arg0: string, arg1: string, arg2: string, arg3: string, arg4: string, arg5: string, arg6: string): Promise<string> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.addMaintenancePlan(arg0, arg1, arg2, arg3, arg4, arg5, arg6);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.addMaintenancePlan(arg0, arg1, arg2, arg3, arg4, arg5, arg6);
+            return result;
+        }
+    }
     async addPersonnelToCompany(arg0: Code, arg1: Code, arg2: string): Promise<void> {
         if (this.processError) {
             try {
@@ -211,6 +392,34 @@ export class Backend implements backendInterface {
             }
         } else {
             const result = await this.actor.addPersonnelToCompany(arg0, arg1, arg2);
+            return result;
+        }
+    }
+    async addProjectCost(arg0: string, arg1: string, arg2: string, arg3: string, arg4: number, arg5: string, arg6: string, arg7: string): Promise<string> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.addProjectCost(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.addProjectCost(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7);
+            return result;
+        }
+    }
+    async addShipment(arg0: string, arg1: string, arg2: string, arg3: string, arg4: string, arg5: string, arg6: string, arg7: string, arg8: string): Promise<string> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.addShipment(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.addShipment(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8);
             return result;
         }
     }
@@ -242,6 +451,20 @@ export class Backend implements backendInterface {
             return result;
         }
     }
+    async assignPersonnelToProject(arg0: string, arg1: string, arg2: string, arg3: string): Promise<string> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.assignPersonnelToProject(arg0, arg1, arg2, arg3);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.assignPersonnelToProject(arg0, arg1, arg2, arg3);
+            return result;
+        }
+    }
     async authenticate(arg0: Code): Promise<AuthenticatedUser | null> {
         if (this.processError) {
             try {
@@ -267,6 +490,62 @@ export class Backend implements backendInterface {
             }
         } else {
             const result = await this.actor.createProject(arg0, arg1, arg2, arg3);
+            return result;
+        }
+    }
+    async deleteDocument(arg0: string): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.deleteDocument(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.deleteDocument(arg0);
+            return result;
+        }
+    }
+    async deleteMachine(arg0: string): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.deleteMachine(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.deleteMachine(arg0);
+            return result;
+        }
+    }
+    async deleteProjectCost(arg0: string): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.deleteProjectCost(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.deleteProjectCost(arg0);
+            return result;
+        }
+    }
+    async deleteTask(arg0: bigint): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.deleteTask(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.deleteTask(arg0);
             return result;
         }
     }
@@ -298,6 +577,20 @@ export class Backend implements backendInterface {
             return from_candid_UserRole_n12(this._uploadFile, this._downloadFile, result);
         }
     }
+    async getFailureMaintenance(arg0: string): Promise<string> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getFailureMaintenance(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getFailureMaintenance(arg0);
+            return result;
+        }
+    }
     async getUserProfile(arg0: Principal): Promise<UserProfile | null> {
         if (this.processError) {
             try {
@@ -326,6 +619,76 @@ export class Backend implements backendInterface {
             return result;
         }
     }
+    async linkFailureMaintenance(arg0: string, arg1: string): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.linkFailureMaintenance(arg0, arg1);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.linkFailureMaintenance(arg0, arg1);
+            return result;
+        }
+    }
+    async listCompanyPersonnel(arg0: string): Promise<Array<Personnel>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.listCompanyPersonnel(arg0);
+                return from_candid_vec_n14(this._uploadFile, this._downloadFile, result);
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.listCompanyPersonnel(arg0);
+            return from_candid_vec_n14(this._uploadFile, this._downloadFile, result);
+        }
+    }
+    async listDocuments(arg0: string): Promise<Array<Document>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.listDocuments(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.listDocuments(arg0);
+            return result;
+        }
+    }
+    async listFailures(arg0: string): Promise<Array<FailureWithProject>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.listFailures(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.listFailures(arg0);
+            return result;
+        }
+    }
+    async listHseRecords(arg0: string): Promise<Array<HseRecord>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.listHseRecords(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.listHseRecords(arg0);
+            return result;
+        }
+    }
     async listMachines(arg0: string): Promise<Array<Machine>> {
         if (this.processError) {
             try {
@@ -340,6 +703,48 @@ export class Backend implements backendInterface {
             return result;
         }
     }
+    async listMaintenancePlans(arg0: string): Promise<Array<MaintenancePlan>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.listMaintenancePlans(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.listMaintenancePlans(arg0);
+            return result;
+        }
+    }
+    async listProjectAssignments(arg0: string): Promise<Array<ProjectAssignment>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.listProjectAssignments(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.listProjectAssignments(arg0);
+            return result;
+        }
+    }
+    async listProjectCosts(arg0: string): Promise<Array<ProjectCost>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.listProjectCosts(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.listProjectCosts(arg0);
+            return result;
+        }
+    }
     async listProjects(arg0: string): Promise<Array<Project>> {
         if (this.processError) {
             try {
@@ -351,6 +756,20 @@ export class Backend implements backendInterface {
             }
         } else {
             const result = await this.actor.listProjects(arg0);
+            return result;
+        }
+    }
+    async listShipments(arg0: string): Promise<Array<Shipment>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.listShipments(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.listShipments(arg0);
             return result;
         }
     }
@@ -385,17 +804,31 @@ export class Backend implements backendInterface {
             return result;
         }
     }
-    async saveCallerUserProfile(arg0: UserProfile): Promise<void> {
+    async removePersonnelFromProject(arg0: string): Promise<void> {
         if (this.processError) {
             try {
-                const result = await this.actor.saveCallerUserProfile(to_candid_UserProfile_n14(this._uploadFile, this._downloadFile, arg0));
+                const result = await this.actor.removePersonnelFromProject(arg0);
                 return result;
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
-            const result = await this.actor.saveCallerUserProfile(to_candid_UserProfile_n14(this._uploadFile, this._downloadFile, arg0));
+            const result = await this.actor.removePersonnelFromProject(arg0);
+            return result;
+        }
+    }
+    async saveCallerUserProfile(arg0: UserProfile): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.saveCallerUserProfile(to_candid_UserProfile_n17(this._uploadFile, this._downloadFile, arg0));
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.saveCallerUserProfile(to_candid_UserProfile_n17(this._uploadFile, this._downloadFile, arg0));
             return result;
         }
     }
@@ -416,6 +849,48 @@ export class Backend implements backendInterface {
             return result;
         }
     }
+    async updateFailureStatus(arg0: string, arg1: string): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.updateFailureStatus(arg0, arg1);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.updateFailureStatus(arg0, arg1);
+            return result;
+        }
+    }
+    async updateHseStatus(arg0: string, arg1: string): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.updateHseStatus(arg0, arg1);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.updateHseStatus(arg0, arg1);
+            return result;
+        }
+    }
+    async updateMachine(arg0: string, arg1: string, arg2: string, arg3: string, arg4: string, arg5: string): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.updateMachine(arg0, arg1, arg2, arg3, arg4, arg5);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.updateMachine(arg0, arg1, arg2, arg3, arg4, arg5);
+            return result;
+        }
+    }
     async updateMachineStatus(arg0: string, arg1: string): Promise<void> {
         if (this.processError) {
             try {
@@ -430,9 +905,68 @@ export class Backend implements backendInterface {
             return result;
         }
     }
+    async updateMaintenancePlanStatus(arg0: string, arg1: string): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.updateMaintenancePlanStatus(arg0, arg1);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.updateMaintenancePlanStatus(arg0, arg1);
+            return result;
+        }
+    }
+    async updateProjectStatus(arg0: string, arg1: string): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.updateProjectStatus(arg0, arg1);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.updateProjectStatus(arg0, arg1);
+            return result;
+        }
+    }
+    async updateShipmentStatus(arg0: string, arg1: string): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.updateShipmentStatus(arg0, arg1);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.updateShipmentStatus(arg0, arg1);
+            return result;
+        }
+    }
+    async updateTaskStatus(arg0: bigint, arg1: string): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.updateTaskStatus(arg0, arg1);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.updateTaskStatus(arg0, arg1);
+            return result;
+        }
+    }
 }
 function from_candid_AuthenticatedUser_n4(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: _AuthenticatedUser): AuthenticatedUser {
     return from_candid_record_n5(_uploadFile, _downloadFile, value);
+}
+function from_candid_Personnel_n15(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: _Personnel): Personnel {
+    return from_candid_record_n16(_uploadFile, _downloadFile, value);
 }
 function from_candid_UserProfile_n10(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: _UserProfile): UserProfile {
     return from_candid_record_n11(_uploadFile, _downloadFile, value);
@@ -473,6 +1007,33 @@ function from_candid_record_n11(_uploadFile: (file: ExternalBlob) => Promise<Uin
         companyId: record_opt_to_undefined(from_candid_opt_n8(_uploadFile, _downloadFile, value.companyId))
     };
 }
+function from_candid_record_n16(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
+    id: _PersonnelId;
+    loginCode: _Code;
+    name: string;
+    createdAt: _Timestamp;
+    role: string;
+    inviteCode: _Code;
+    companyId: [] | [_CompanyId];
+}): {
+    id: PersonnelId;
+    loginCode: Code;
+    name: string;
+    createdAt: Timestamp;
+    role: string;
+    inviteCode: Code;
+    companyId?: CompanyId;
+} {
+    return {
+        id: value.id,
+        loginCode: value.loginCode,
+        name: value.name,
+        createdAt: value.createdAt,
+        role: value.role,
+        inviteCode: value.inviteCode,
+        companyId: record_opt_to_undefined(from_candid_opt_n8(_uploadFile, _downloadFile, value.companyId))
+    };
+}
 function from_candid_record_n5(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
     role: [] | [string];
     personnelId: [] | [_PersonnelId];
@@ -497,13 +1058,16 @@ function from_candid_variant_n13(_uploadFile: (file: ExternalBlob) => Promise<Ui
 }): UserRole {
     return "admin" in value ? UserRole.admin : "user" in value ? UserRole.user : "guest" in value ? UserRole.guest : value;
 }
-function to_candid_UserProfile_n14(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: UserProfile): _UserProfile {
-    return to_candid_record_n15(_uploadFile, _downloadFile, value);
+function from_candid_vec_n14(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: Array<_Personnel>): Array<Personnel> {
+    return value.map((x)=>from_candid_Personnel_n15(_uploadFile, _downloadFile, x));
+}
+function to_candid_UserProfile_n17(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: UserProfile): _UserProfile {
+    return to_candid_record_n18(_uploadFile, _downloadFile, value);
 }
 function to_candid_UserRole_n1(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: UserRole): _UserRole {
     return to_candid_variant_n2(_uploadFile, _downloadFile, value);
 }
-function to_candid_record_n15(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
+function to_candid_record_n18(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
     name: string;
     email: string;
     personnelId?: PersonnelId;

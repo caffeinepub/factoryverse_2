@@ -1,24 +1,33 @@
 # FactoryVerse
 
 ## Current State
-MVP is live with 19 modules. The latest addition (Sürüm 19) linked failure records to projects and shows them in the project detail page. Projects have a `status` field stored in backend, but there is no way for admins to update project status via the UI. The backend has no `updateProjectStatus` function.
+MVP v20 is live. Modules include: auth, dashboard, machines, projects, tasks, failures, documents, HSE, logistics, notifications, Gantt calendar, QR codes, preventive maintenance plans, personnel performance, machine detail, project costs, personnel detail, project detail, project team assignment, project-linked failures, project status updates.
+
+Missing: task edit/delete, machine edit/delete, a reporting/KPI page, and failure-maintenance linkage.
 
 ## Requested Changes (Diff)
 
 ### Add
-- Backend: `updateProjectStatus(projectId: Text, status: Text)` function that updates a project's status, with company access verification.
-- Frontend: In `ProjectDetail.tsx`, allow admin users to change project status via a dropdown/select in the project header area. Statuses: Planning (Planlama), Active (Aktif), Completed (Tamamlandı), OnHold (Beklemede).
+- Backend: `updateTaskStatus`, `deleteTask`, `updateMachine`, `deleteMachine`, `linkFailureMaintenance`, `getFailureMaintenance` endpoints
+- Frontend: New `Reports.tsx` page — KPI cards (total machines/active/breakdown, total failures/open/resolved, task completion rate, shipment status counts, HSE open records, cost totals per project)
+- Frontend: Edit dialog and delete button on Tasks page
+- Frontend: Edit dialog and delete button on Machines page
+- Frontend: On Maintenance (failures) page, when resolving a failure, optionally link to a maintenance plan
+- Sidebar: Add "Raporlar" link with chart icon
 
 ### Modify
-- `backend.did.js`: Add `updateProjectStatus` IDL entry.
-- `backend.d.ts`: Add `updateProjectStatus` method signature to `_SERVICE`.
-- `ProjectDetail.tsx`: Show a status change selector in the project header for admin users.
+- Tasks page: add edit (title, assignee, dueDate) and delete per task
+- Machines page: add edit (name, type, serialNumber, location, notes) and delete per machine
+- Maintenance (failures) page: add maintenance plan selector when resolving
 
 ### Remove
-- Nothing removed.
+- Nothing removed
 
 ## Implementation Plan
-1. Add `updateProjectStatus` to `src/backend/main.mo`.
-2. Register it in `backend.did.js` (idlService + idlFactory).
-3. Add the TypeScript signature to `backend.did.d.ts`.
-4. In `ProjectDetail.tsx`, add an inline status selector in the project header (only for admin), calling `updateProjectStatus` on change and updating local state.
+1. Add backend functions: updateTaskStatus (if missing), deleteTask, updateMachine, deleteMachine, linkFailureMaintenance, getFailureMaintenance
+2. Update backend.d.ts with new function signatures
+3. Create Reports.tsx with KPI summary cards and simple stats
+4. Update Tasks.tsx with edit dialog and delete button
+5. Update Machines.tsx with edit dialog and delete button
+6. Update Maintenance.tsx with maintenance plan linkage when resolving
+7. Add Reports route to AppShell.tsx

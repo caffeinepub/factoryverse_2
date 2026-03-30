@@ -19,6 +19,7 @@ import PersonnelDetail from "@/pages/PersonnelDetail";
 import ProjectCosts from "@/pages/ProjectCosts";
 import ProjectDetail from "@/pages/ProjectDetail";
 import Projects from "@/pages/Projects";
+import Reports from "@/pages/Reports";
 import Tasks from "@/pages/Tasks";
 import {
   BarChart3,
@@ -34,6 +35,7 @@ import {
   LayoutDashboard,
   LogOut,
   Menu,
+  PieChart,
   Settings,
   ShieldAlert,
   Truck,
@@ -67,6 +69,7 @@ const navItems = [
   },
   { id: "performance" as Page, label: "Performans", icon: BarChart3 },
   { id: "project-costs" as Page, label: "Maliyet Takibi", icon: DollarSign },
+  { id: "reports" as Page, label: "Raporlar", icon: PieChart },
   { id: "documents" as Page, label: "Dokümanlar", icon: FileText },
   { id: "hse" as Page, label: "İSG", icon: ShieldAlert },
   { id: "logistics" as Page, label: "Lojistik", icon: Truck },
@@ -130,6 +133,7 @@ export default function AppShell({
     "machine-detail": "Makine Detayı",
     "personnel-detail": "Personel Detayı",
     "project-detail": "Proje Detayı",
+    reports: "Raporlar & İstatistikler",
     landing: "Ana Sayfa",
     login: "Giriş",
     register: "Kayıt",
@@ -204,6 +208,8 @@ export default function AppShell({
         return <Notifications session={session} navigate={navigate} />;
       case "calendar":
         return <GanttCalendar session={session} />;
+      case "reports":
+        return <Reports session={session} />;
       case "personnel":
         return isAdmin ? (
           <Personnel />

@@ -9,7 +9,8 @@ import Array "mo:core/Array";
 import Principal "mo:core/Principal";
 import AccessControl "authorization/access-control";
 import MixinAuthorization "authorization/MixinAuthorization";
-
+import Migration "migration";
+(with migration = Migration.run)
 actor {
   let accessControlState = AccessControl.initState();
   include MixinAuthorization(accessControlState);
@@ -29,6 +30,8 @@ actor {
   type DeadLine = Text;
   type CompanyName = Text;
   type ProjectAssignmentId = Text;
+  type MaintenancePlanId = Text;
+  type ProjectCostId = Text;
 
   public type Company = {
     id : CompanyId;
@@ -144,8 +147,6 @@ actor {
     createdAt : Timestamp;
   };
 
-  type MaintenancePlanId = Text;
-
   public type MaintenancePlan = {
     id : MaintenancePlanId;
     companyId : CompanyId;
@@ -158,8 +159,6 @@ actor {
     status : Text;
     createdAt : Timestamp;
   };
-
-  type ProjectCostId = Text;
 
   public type ProjectCost = {
     id : ProjectCostId;
@@ -220,6 +219,7 @@ actor {
   let principalToPersonnel = Map.empty<Principal, PersonnelId>();
   let principalToCompany = Map.empty<Principal, CompanyId>();
   let userProfiles = Map.empty<Principal, UserProfile>();
+  let failureMaintenanceStore = Map.empty<FailureId, MaintenancePlanId>();
 
   var nextCompanyId = 1;
   var nextProjectId = 1;
@@ -861,5 +861,102 @@ actor {
         case null { false };
       };
     });
+  };
+
+  // New functions from user request
+
+  public shared ({ caller }) func updateTaskStatus(taskId : Nat, status : Text) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only authenticated users can update task status");
+    };
+    switch (taskStore.get(taskId)) {
+      case (null) { Runtime.trap("Task not found.") };
+      case (?task) {
+        verifyCompanyAccess(caller, task.companyId);
+        let updated : Task = { task with status };
+        taskStore.add(taskId, updated);
+      };
+    };
+  };
+
+  public shared ({ caller }) func deleteTask(taskId : Nat) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only authenticated users can delete tasks");
+    };
+    switch (taskStore.get(taskId)) {
+      case (null) { Runtime.trap("Task not found.") };
+      case (?task) {
+        verifyCompanyAccess(caller, task.companyId);
+        taskStore.remove(taskId);
+      };
+    };
+  };
+
+  public shared ({ caller }) func updateMachine(machineId : Text, name : Text, machineType : Text, serialNumber : Text, location : Text, notes : Text) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only authenticated users can update machine details");
+    };
+    switch (machines.get(machineId)) {
+      case (null) { Runtime.trap("Machine not found.") };
+      case (?machine) {
+        verifyCompanyAccess(caller, machine.companyId);
+        let updated : Machine = { machine with name; machineType; serialNumber; location; notes };
+        machines.add(machineId, updated);
+      };
+    };
+  };
+
+  public shared ({ caller }) func deleteMachine(machineId : Text) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only authenticated users can delete machines");
+    };
+    switch (machines.get(machineId)) {
+      case (null) { Runtime.trap("Machine not found.") };
+      case (?machine) {
+        verifyCompanyAccess(caller, machine.companyId);
+        machines.remove(machineId);
+      };
+    };
+  };
+
+  public shared ({ caller }) func linkFailureMaintenance(failureId : Text, maintenancePlanId : Text) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only authenticated users can link failures to maintenance plans");
+    };
+
+    switch (failureStore.get(failureId)) {
+      case (null) { Runtime.trap("Failure record not found.") };
+      case (?failure) {
+        verifyCompanyAccess(caller, failure.companyId);
+        
+        // Verify maintenance plan exists and belongs to same company
+        switch (maintenancePlanStore.get(maintenancePlanId)) {
+          case (null) { Runtime.trap("Maintenance plan not found.") };
+          case (?plan) {
+            if (plan.companyId != failure.companyId) {
+              Runtime.trap("Unauthorized: Maintenance plan does not belong to the same company");
+            };
+            failureMaintenanceStore.add(failureId, maintenancePlanId);
+          };
+        };
+      };
+    };
+  };
+
+  public query ({ caller }) func getFailureMaintenance(failureId : Text) : async Text {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only authenticated users can get linked maintenance plans");
+    };
+
+    switch (failureStore.get(failureId)) {
+      case (null) { Runtime.trap("Failure record not found.") };
+      case (?failure) {
+        verifyCompanyAccess(caller, failure.companyId);
+        switch (failureMaintenanceStore.get(failureId)) {
+          case (?maintenancePlanId) { maintenancePlanId };
+          case null { "" };
+        };
+      };
+    };
   };
 };

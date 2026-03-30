@@ -1,5 +1,9 @@
 import type { Page, Session } from "@/App";
-import type { Failure, Machine, Project } from "@/backend.d";
+import type {
+  FailureWithProject as Failure,
+  Machine,
+  Project,
+} from "@/backend.d";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useActor } from "@/hooks/useActor";
 import {

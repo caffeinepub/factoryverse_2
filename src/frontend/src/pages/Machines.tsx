@@ -34,8 +34,10 @@ import {
   Cpu,
   Download,
   Loader2,
+  Pencil,
   Plus,
   QrCode,
+  Trash2,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -75,6 +77,7 @@ function buildQrUrl(machineId: string): string {
 
 export default function Machines({ session }: Props) {
   const { actor } = useActor();
+  const api = actor as any;
   const [machines, setMachines] = useState<Machine[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -82,6 +85,18 @@ export default function Machines({ session }: Props) {
   const [qrMachine, setQrMachine] = useState<Machine | null>(null);
   const [qrDialogOpen, setQrDialogOpen] = useState(false);
   const [downloading, setDownloading] = useState(false);
+
+  // Edit machine state
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editingMachine, setEditingMachine] = useState<Machine | null>(null);
+  const [editForm, setEditForm] = useState({
+    name: "",
+    machineType: "",
+    serialNumber: "",
+    location: "",
+    notes: "",
+  });
+  const [editSubmitting, setEditSubmitting] = useState(false);
 
   const [form, setForm] = useState({
     name: "",
@@ -158,6 +173,66 @@ export default function Machines({ session }: Props) {
       );
     } catch {
       toast.error("Durum güncellenirken hata oluştu.");
+    }
+  };
+
+  const handleOpenEdit = (machine: Machine) => {
+    setEditingMachine(machine);
+    setEditForm({
+      name: machine.name,
+      machineType: machine.machineType,
+      serialNumber: machine.serialNumber || "",
+      location: machine.location || "",
+      notes: machine.notes || "",
+    });
+    setEditDialogOpen(true);
+  };
+
+  const handleEditSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingMachine || !api) return;
+    if (!editForm.name || !editForm.machineType) {
+      toast.error("Ad ve Tip zorunludur.");
+      return;
+    }
+    setEditSubmitting(true);
+    try {
+      await api.updateMachine(
+        editingMachine.id,
+        editForm.name,
+        editForm.machineType,
+        editForm.serialNumber,
+        editForm.location,
+        editForm.notes,
+      );
+      setMachines((prev) =>
+        prev.map((m) =>
+          m.id === editingMachine.id ? { ...m, ...editForm } : m,
+        ),
+      );
+      toast.success("Makine güncellendi!");
+      setEditDialogOpen(false);
+    } catch {
+      toast.error("Güncelleme sırasında hata oluştu.");
+    } finally {
+      setEditSubmitting(false);
+    }
+  };
+
+  const handleDelete = async (machine: Machine) => {
+    if (
+      !window.confirm(
+        `"${machine.name}" makinesini silmek istediğinizden emin misiniz?`,
+      )
+    )
+      return;
+    if (!api) return;
+    try {
+      await api.deleteMachine(machine.id);
+      setMachines((prev) => prev.filter((m) => m.id !== machine.id));
+      toast.success("Makine silindi.");
+    } catch {
+      toast.error("Makine silinirken hata oluştu.");
     }
   };
 
@@ -321,6 +396,102 @@ export default function Machines({ session }: Props) {
         </Dialog>
       </div>
 
+      {/* Edit Machine Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent
+          aria-describedby="edit-machine-desc"
+          data-ocid="machines.edit.dialog"
+        >
+          <DialogHeader>
+            <DialogTitle
+              style={{ fontFamily: "'Bricolage Grotesque', sans-serif" }}
+            >
+              Makine Düzenle
+            </DialogTitle>
+            <DialogDescription id="edit-machine-desc">
+              Makine bilgilerini güncelleyin.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleEditSave} className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>Ad *</Label>
+                <Input
+                  value={editForm.name}
+                  onChange={(e) =>
+                    setEditForm((f) => ({ ...f, name: e.target.value }))
+                  }
+                  data-ocid="machines.edit.name.input"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Tip *</Label>
+                <Input
+                  value={editForm.machineType}
+                  onChange={(e) =>
+                    setEditForm((f) => ({ ...f, machineType: e.target.value }))
+                  }
+                  data-ocid="machines.edit.type.input"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>Seri No</Label>
+                <Input
+                  value={editForm.serialNumber}
+                  onChange={(e) =>
+                    setEditForm((f) => ({ ...f, serialNumber: e.target.value }))
+                  }
+                  data-ocid="machines.edit.serial.input"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Konum</Label>
+                <Input
+                  value={editForm.location}
+                  onChange={(e) =>
+                    setEditForm((f) => ({ ...f, location: e.target.value }))
+                  }
+                  data-ocid="machines.edit.location.input"
+                />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Notlar</Label>
+              <Textarea
+                value={editForm.notes}
+                onChange={(e) =>
+                  setEditForm((f) => ({ ...f, notes: e.target.value }))
+                }
+                rows={2}
+                data-ocid="machines.edit.notes.textarea"
+              />
+            </div>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setEditDialogOpen(false)}
+                data-ocid="machines.edit.cancel_button"
+              >
+                İptal
+              </Button>
+              <Button
+                type="submit"
+                disabled={editSubmitting}
+                data-ocid="machines.edit.save_button"
+              >
+                {editSubmitting ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : null}
+                {editSubmitting ? "Kaydediliyor..." : "Güncelle"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
       {/* QR Code Dialog */}
       <Dialog open={qrDialogOpen} onOpenChange={setQrDialogOpen}>
         <DialogContent
@@ -341,7 +512,6 @@ export default function Machines({ session }: Props) {
 
           {qrMachine && (
             <div className="flex flex-col items-center gap-4 py-2">
-              {/* Machine summary */}
               <div className="w-full grid grid-cols-2 gap-2 text-sm bg-muted/40 rounded-lg p-3">
                 <div>
                   <p className="text-muted-foreground text-xs">Tip</p>
@@ -359,7 +529,6 @@ export default function Machines({ session }: Props) {
                 </div>
               </div>
 
-              {/* QR Code */}
               <div className="p-3 bg-white rounded-xl border border-border shadow-sm">
                 <img
                   src={buildQrUrl(qrMachine.id)}
@@ -427,7 +596,7 @@ export default function Machines({ session }: Props) {
                 <TableHead className="hidden md:table-cell">Seri No</TableHead>
                 <TableHead className="hidden md:table-cell">Konum</TableHead>
                 <TableHead>Durum</TableHead>
-                <TableHead className="w-36">İşlemler</TableHead>
+                <TableHead className="w-44">İşlemler</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -447,7 +616,7 @@ export default function Machines({ session }: Props) {
                     <StatusBadge status={m.status} />
                   </TableCell>
                   <TableCell>
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-1">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button
@@ -476,9 +645,29 @@ export default function Machines({ session }: Props) {
                         className="text-xs px-2"
                         onClick={() => handleOpenQr(m)}
                         data-ocid={`machines.qr.${idx + 1}`}
-                        title="QR Kod Göster"
+                        title="QR Kod"
                       >
                         <QrCode className="w-3.5 h-3.5" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-xs px-2"
+                        onClick={() => handleOpenEdit(m)}
+                        data-ocid={`machines.edit_button.${idx + 1}`}
+                        title="Düzenle"
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-xs px-2 text-red-600 hover:text-red-700 hover:bg-red-50"
+                        onClick={() => handleDelete(m)}
+                        data-ocid={`machines.delete_button.${idx + 1}`}
+                        title="Sil"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
                       </Button>
                     </div>
                   </TableCell>

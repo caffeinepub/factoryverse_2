@@ -1,5 +1,10 @@
 import type { Session } from "@/App";
-import type { Failure, HseRecord, Project, Task } from "@/backend.d";
+import type {
+  FailureWithProject as Failure,
+  HseRecord,
+  Project,
+  Task,
+} from "@/backend.d";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
