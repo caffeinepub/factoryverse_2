@@ -3,6 +3,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import Attendance from "@/pages/Attendance";
 import Dashboard from "@/pages/Dashboard";
 import Documents from "@/pages/Documents";
 import GanttCalendar from "@/pages/GanttCalendar";
@@ -42,6 +43,7 @@ import {
   Settings,
   ShieldAlert,
   Truck,
+  UserCheck,
   Users,
   Wrench,
 } from "lucide-react";
@@ -80,6 +82,7 @@ const navItems = [
   { id: "notifications" as Page, label: "Bildirimler", icon: Bell },
   { id: "calendar" as Page, label: "Takvim", icon: CalendarDays },
   { id: "personnel" as Page, label: "Personel", icon: Users, adminOnly: true },
+  { id: "attendance" as Page, label: "Yoklama", icon: UserCheck },
   { id: "settings" as Page, label: "Ayarlar", icon: Settings },
 ];
 
@@ -139,6 +142,7 @@ export default function AppShell({
     "project-detail": "Proje Detayı",
     reports: "Raporlar & İstatistikler",
     suppliers: "Tedarikçiler",
+    attendance: "Yoklama Takibi",
     landing: "Ana Sayfa",
     login: "Giriş",
     register: "Kayıt",
@@ -225,6 +229,8 @@ export default function AppShell({
         return <SettingsPage session={session} />;
       case "suppliers":
         return <Suppliers session={session} />;
+      case "attendance":
+        return <Attendance session={session} navigate={navigate} />;
       default:
         return <Dashboard session={session} navigate={navigate} />;
     }

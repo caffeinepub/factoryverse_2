@@ -30,7 +30,8 @@ export type Page =
   | "personnel-detail"
   | "project-detail"
   | "reports"
-  | "suppliers";
+  | "suppliers"
+  | "attendance";
 
 export interface Session {
   companyId: string;

@@ -35,6 +35,7 @@ import {
   Loader2,
   Pencil,
   Plus,
+  Star,
   ToggleLeft,
   ToggleRight,
   Trash2,
@@ -79,15 +80,10 @@ export default function Suppliers({ session }: Props) {
   const isAdmin = session.role === "companyAdmin" || session.role === "admin";
 
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
-  const [ratings, setRatings] = useState<Record<string, number>>(() => {
-    try {
-      return JSON.parse(
-        localStorage.getItem("supplierRatings") ?? "{}",
-      ) as Record<string, number>;
-    } catch {
-      return {};
-    }
-  });
+  // avgRatings: supplierId -> { avg: number, count: number }
+  const [avgRatings, setAvgRatings] = useState<
+    Record<string, { avg: number; count: number }>
+  >({});
   const [loading, setLoading] = useState(true);
 
   // Add dialog
@@ -106,6 +102,13 @@ export default function Suppliers({ session }: Props) {
   const [deleteTarget, setDeleteTarget] = useState<Supplier | null>(null);
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
 
+  // Rating dialog
+  const [ratingOpen, setRatingOpen] = useState(false);
+  const [ratingTarget, setRatingTarget] = useState<Supplier | null>(null);
+  const [ratingValue, setRatingValue] = useState(5);
+  const [ratingComment, setRatingComment] = useState("");
+  const [ratingSubmitting, setRatingSubmitting] = useState(false);
+
   const loadSuppliers = async () => {
     if (!session.companyId || !api) {
       setLoading(false);
@@ -114,6 +117,28 @@ export default function Suppliers({ session }: Props) {
     try {
       const data: Supplier[] = await api.listSuppliers(session.companyId);
       setSuppliers(data);
+      // Load average ratings in parallel
+      const ratingResults = await Promise.all(
+        data.map(async (s) => {
+          try {
+            const allRatings: Array<{ rating: bigint }> =
+              await api.listSupplierRatings(s.id);
+            if (allRatings.length === 0)
+              return [s.id, { avg: 0, count: 0 }] as const;
+            const sum = allRatings.reduce(
+              (acc, r) => acc + Number(r.rating),
+              0,
+            );
+            return [
+              s.id,
+              { avg: sum / allRatings.length, count: allRatings.length },
+            ] as const;
+          } catch {
+            return [s.id, { avg: 0, count: 0 }] as const;
+          }
+        }),
+      );
+      setAvgRatings(Object.fromEntries(ratingResults));
     } catch {
       toast.error("Tedarikçiler yüklenemedi.");
     } finally {
@@ -230,10 +255,59 @@ export default function Suppliers({ session }: Props) {
     }
   };
 
+  const handleOpenRating = (s: Supplier) => {
+    setRatingTarget(s);
+    setRatingValue(5);
+    setRatingComment("");
+    setRatingOpen(true);
+  };
+
+  const handleRatingSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!ratingTarget || !api) return;
+    setRatingSubmitting(true);
+    try {
+      await api.addSupplierRating(
+        ratingTarget.id,
+        session.companyId,
+        BigInt(ratingValue),
+        ratingComment,
+      );
+      toast.success("Puan eklendi!");
+      setRatingOpen(false);
+      // Refresh rating for this supplier
+      const allRatings: Array<{ rating: bigint }> =
+        await api.listSupplierRatings(ratingTarget.id);
+      if (allRatings.length > 0) {
+        const sum = allRatings.reduce((acc, r) => acc + Number(r.rating), 0);
+        setAvgRatings((prev) => ({
+          ...prev,
+          [ratingTarget.id]: {
+            avg: sum / allRatings.length,
+            count: allRatings.length,
+          },
+        }));
+      }
+    } catch {
+      toast.error("Puan eklenirken hata oluştu.");
+    } finally {
+      setRatingSubmitting(false);
+    }
+  };
+
   const handleExportCsv = () => {
     downloadCsv(
       "tedarikciler.csv",
-      ["Ad", "Kategori", "Yetkili", "Telefon", "E-posta", "Adres", "Durum"],
+      [
+        "Ad",
+        "Kategori",
+        "Yetkili",
+        "Telefon",
+        "E-posta",
+        "Adres",
+        "Durum",
+        "Ortalama Puan",
+      ],
       suppliers.map((s) => [
         s.name,
         s.category,
@@ -242,14 +316,9 @@ export default function Suppliers({ session }: Props) {
         s.contactEmail,
         s.address,
         s.status === "active" ? "Aktif" : "Pasif",
+        avgRatings[s.id]?.avg ? avgRatings[s.id].avg.toFixed(1) : "—",
       ]),
     );
-  };
-
-  const handleSetRating = (supplierId: string, rating: number) => {
-    const updated = { ...ratings, [supplierId]: rating };
-    setRatings(updated);
-    localStorage.setItem("supplierRatings", JSON.stringify(updated));
   };
 
   const SupplierForm = ({
@@ -494,6 +563,77 @@ export default function Suppliers({ session }: Props) {
         </DialogContent>
       </Dialog>
 
+      {/* Rating Dialog */}
+      <Dialog open={ratingOpen} onOpenChange={setRatingOpen}>
+        <DialogContent
+          aria-describedby="rating-supplier-desc"
+          data-ocid="suppliers.rating.dialog"
+        >
+          <DialogHeader>
+            <DialogTitle
+              style={{ fontFamily: "'Bricolage Grotesque', sans-serif" }}
+            >
+              Puan Ekle
+            </DialogTitle>
+            <DialogDescription id="rating-supplier-desc">
+              <strong>{ratingTarget?.name}</strong> için puan ve yorum girin.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleRatingSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label>Puan</Label>
+              <div className="flex items-center gap-1">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <button
+                    key={star}
+                    type="button"
+                    onClick={() => setRatingValue(star)}
+                    className={`text-3xl leading-none cursor-pointer hover:scale-110 transition-transform ${
+                      star <= ratingValue ? "text-amber-400" : "text-gray-300"
+                    }`}
+                  >
+                    ★
+                  </button>
+                ))}
+                <span className="ml-2 text-sm text-muted-foreground">
+                  {ratingValue}/5
+                </span>
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Yorum (opsiyonel)</Label>
+              <Textarea
+                value={ratingComment}
+                onChange={(e) => setRatingComment(e.target.value)}
+                rows={2}
+                placeholder="Tedarikçi hakkında yorumunuzu yazın..."
+                data-ocid="suppliers.rating.textarea"
+              />
+            </div>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setRatingOpen(false)}
+                data-ocid="suppliers.rating.cancel_button"
+              >
+                İptal
+              </Button>
+              <Button
+                type="submit"
+                disabled={ratingSubmitting}
+                data-ocid="suppliers.rating.submit_button"
+              >
+                {ratingSubmitting ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : null}
+                {ratingSubmitting ? "Kaydediliyor..." : "Puan Ekle"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
       {loading ? (
         <div
           className="flex items-center justify-center h-40"
@@ -522,54 +662,74 @@ export default function Suppliers({ session }: Props) {
                 <TableHead className="hidden md:table-cell">Telefon</TableHead>
                 <TableHead>Durum</TableHead>
                 <TableHead>Puan</TableHead>
-                {isAdmin && <TableHead className="w-32">İşlemler</TableHead>}
+                <TableHead className="w-40">İşlemler</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {suppliers.map((s, idx) => (
-                <TableRow key={s.id} data-ocid={`suppliers.item.${idx + 1}`}>
-                  <TableCell className="font-medium">{s.name}</TableCell>
-                  <TableCell>
-                    <span className="text-xs px-2 py-1 rounded-full bg-purple-100 text-purple-700 font-medium">
-                      {s.category}
-                    </span>
-                  </TableCell>
-                  <TableCell className="hidden md:table-cell text-muted-foreground">
-                    {s.contactName || "—"}
-                  </TableCell>
-                  <TableCell className="hidden md:table-cell text-muted-foreground">
-                    {s.contactPhone || "—"}
-                  </TableCell>
-                  <TableCell>
-                    <span
-                      className={`text-xs px-2 py-1 rounded-full font-medium border ${
-                        s.status === "active"
-                          ? "bg-green-100 text-green-700 border-green-200"
-                          : "bg-gray-100 text-gray-600 border-gray-200"
-                      }`}
-                    >
-                      {s.status === "active" ? "Aktif" : "Pasif"}
-                    </span>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-0.5">
-                      {[1, 2, 3, 4, 5].map((star) => (
-                        <button
-                          key={star}
-                          type="button"
-                          onClick={() =>
-                            isAdmin ? handleSetRating(s.id, star) : undefined
-                          }
-                          className={`text-lg leading-none ${isAdmin ? "cursor-pointer hover:scale-110 transition-transform" : "cursor-default"} ${star <= (ratings[s.id] ?? 0) ? "text-amber-400" : "text-gray-300"}`}
-                        >
-                          ★
-                        </button>
-                      ))}
-                    </div>
-                  </TableCell>
-                  {isAdmin && (
+              {suppliers.map((s, idx) => {
+                const rInfo = avgRatings[s.id];
+                const avgVal = rInfo?.avg ?? 0;
+                const count = rInfo?.count ?? 0;
+                return (
+                  <TableRow key={s.id} data-ocid={`suppliers.item.${idx + 1}`}>
+                    <TableCell className="font-medium">{s.name}</TableCell>
+                    <TableCell>
+                      <span className="text-xs px-2 py-1 rounded-full bg-purple-100 text-purple-700 font-medium">
+                        {s.category}
+                      </span>
+                    </TableCell>
+                    <TableCell className="hidden md:table-cell text-muted-foreground">
+                      {s.contactName || "—"}
+                    </TableCell>
+                    <TableCell className="hidden md:table-cell text-muted-foreground">
+                      {s.contactPhone || "—"}
+                    </TableCell>
+                    <TableCell>
+                      <span
+                        className={`text-xs px-2 py-1 rounded-full font-medium border ${
+                          s.status === "active"
+                            ? "bg-green-100 text-green-700 border-green-200"
+                            : "bg-gray-100 text-gray-600 border-gray-200"
+                        }`}
+                      >
+                        {s.status === "active" ? "Aktif" : "Pasif"}
+                      </span>
+                    </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-0.5">
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <span
+                              key={star}
+                              className={`text-base leading-none ${
+                                star <= Math.round(avgVal)
+                                  ? "text-amber-400"
+                                  : "text-gray-300"
+                              }`}
+                            >
+                              ★
+                            </span>
+                          ))}
+                        </div>
+                        {count > 0 && (
+                          <span className="text-xs text-muted-foreground ml-1">
+                            {avgVal.toFixed(1)} ({count})
+                          </span>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="px-2 text-amber-600 hover:text-amber-700 hover:bg-amber-50"
+                          onClick={() => handleOpenRating(s)}
+                          title="Puan Ekle"
+                          data-ocid={`suppliers.rating.open_modal_button.${idx + 1}`}
+                        >
+                          <Star className="w-3.5 h-3.5" />
+                        </Button>
                         <Button
                           variant="outline"
                           size="sm"
@@ -586,32 +746,36 @@ export default function Suppliers({ session }: Props) {
                             <ToggleLeft className="w-3.5 h-3.5 text-gray-400" />
                           )}
                         </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="px-2"
-                          onClick={() => handleOpenEdit(s)}
-                          data-ocid={`suppliers.edit_button.${idx + 1}`}
-                        >
-                          <Pencil className="w-3.5 h-3.5" />
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="px-2 text-red-600 hover:text-red-700 hover:bg-red-50"
-                          onClick={() => {
-                            setDeleteTarget(s);
-                            setDeleteOpen(true);
-                          }}
-                          data-ocid={`suppliers.delete_button.${idx + 1}`}
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </Button>
+                        {isAdmin && (
+                          <>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="px-2"
+                              onClick={() => handleOpenEdit(s)}
+                              data-ocid={`suppliers.edit_button.${idx + 1}`}
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="px-2 text-red-600 hover:text-red-700 hover:bg-red-50"
+                              onClick={() => {
+                                setDeleteTarget(s);
+                                setDeleteOpen(true);
+                              }}
+                              data-ocid={`suppliers.delete_button.${idx + 1}`}
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
+                          </>
+                        )}
                       </div>
                     </TableCell>
-                  )}
-                </TableRow>
-              ))}
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         </div>

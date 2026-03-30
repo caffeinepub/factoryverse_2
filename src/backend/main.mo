@@ -208,6 +208,43 @@ actor {
     createdAt : Timestamp;
   };
 
+
+  public type SupplierRatingId = Text;
+  public type SupplierRating = {
+    id : SupplierRatingId;
+    supplierId : SupplierId;
+    companyId : CompanyId;
+    rating : Nat;
+    comment : Text;
+    createdAt : Timestamp;
+  };
+
+  public type AttendanceId = Text;
+  public type Attendance = {
+    id : AttendanceId;
+    companyId : CompanyId;
+    personnelId : PersonnelId;
+    date : Text;
+    status : Text;
+    note : Text;
+    createdAt : Timestamp;
+  };
+
+  public type SparePartId = Text;
+  public type SparePart = {
+    id : SparePartId;
+    companyId : CompanyId;
+    machineId : MachineId;
+    name : Text;
+    partCode : Text;
+    quantity : Nat;
+    unit : Text;
+    minStock : Nat;
+    supplier : Text;
+    notes : Text;
+    createdAt : Timestamp;
+  };
+
   public type AuthenticatedUser = {
     companyId : ?CompanyId;
     personnelId : ?PersonnelId;
@@ -261,6 +298,12 @@ actor {
   var nextProjectAssignmentId = 1;
   var nextSupplierId = 1;
   var nextTaskNoteId = 1;
+  let supplierRatingStore = Map.empty<SupplierRatingId, SupplierRating>();
+  var nextSupplierRatingId = 1;
+  let attendanceStore = Map.empty<AttendanceId, Attendance>();
+  var nextAttendanceId = 1;
+  let sparePartStore = Map.empty<SparePartId, SparePart>();
+  var nextSparePartId = 1;
 
   func getNextCompanyId() : CompanyId {
     let id = nextCompanyId.toText();
@@ -1402,5 +1445,147 @@ actor {
       };
     };
   };
+
+  // SupplierRating module
+  public shared ({ caller }) func addSupplierRating(supplierId : Text, companyId : Text, rating : Nat, comment : Text) : async Text {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized");
+    };
+    verifyCompanyAccess(caller, companyId);
+    if (rating < 1 or rating > 5) { Runtime.trap("Rating must be 1-5.") };
+    let id = "sr-" # nextSupplierRatingId.toText();
+    nextSupplierRatingId += 1;
+    let r : SupplierRating = { id; supplierId; companyId; rating; comment; createdAt = Time.now() };
+    supplierRatingStore.add(id, r);
+    id;
+  };
+
+  public query ({ caller }) func listSupplierRatings(supplierId : Text) : async [SupplierRating] {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized");
+    };
+    supplierRatingStore.values().toArray().filter(func(r) { r.supplierId == supplierId });
+  };
+
+  public query ({ caller }) func getSupplierAverageRating(supplierId : Text) : async ?Nat {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized");
+    };
+    let ratings = supplierRatingStore.values().toArray().filter(func(r) { r.supplierId == supplierId });
+    if (ratings.size() == 0) { return null };
+    var total = 0;
+    for (r in ratings.vals()) { total += r.rating };
+    ?(total / ratings.size());
+  };
+
+  public shared ({ caller }) func deleteSupplierRating(ratingId : Text) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized");
+    };
+    switch (supplierRatingStore.get(ratingId)) {
+      case (null) { Runtime.trap("Rating not found.") };
+      case (?r) {
+        verifyCompanyAccess(caller, r.companyId);
+        supplierRatingStore.remove(ratingId);
+      };
+    };
+  };
+
+  // Attendance module
+  public shared ({ caller }) func addAttendance(companyId : Text, personnelId : Text, date : Text, status : Text, note : Text) : async Text {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized");
+    };
+    verifyCompanyAccess(caller, companyId);
+    let id = "att-" # nextAttendanceId.toText();
+    nextAttendanceId += 1;
+    let a : Attendance = { id; companyId; personnelId; date; status; note; createdAt = Time.now() };
+    attendanceStore.add(id, a);
+    id;
+  };
+
+  public query ({ caller }) func listAttendance(companyId : Text) : async [Attendance] {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized");
+    };
+    verifyCompanyAccess(caller, companyId);
+    attendanceStore.values().toArray().filter(func(a) { a.companyId == companyId });
+  };
+
+  public shared ({ caller }) func updateAttendance(attendanceId : Text, status : Text, note : Text) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized");
+    };
+    switch (attendanceStore.get(attendanceId)) {
+      case (null) { Runtime.trap("Attendance not found.") };
+      case (?a) {
+        verifyCompanyAccess(caller, a.companyId);
+        let updated : Attendance = { a with status; note };
+        attendanceStore.add(attendanceId, updated);
+      };
+    };
+  };
+
+  public shared ({ caller }) func deleteAttendance(attendanceId : Text) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized");
+    };
+    switch (attendanceStore.get(attendanceId)) {
+      case (null) { Runtime.trap("Attendance not found.") };
+      case (?a) {
+        verifyCompanyAccess(caller, a.companyId);
+        attendanceStore.remove(attendanceId);
+      };
+    };
+  };
+
+  // SparePart module
+  public shared ({ caller }) func addSparePart(companyId : Text, machineId : Text, name : Text, partCode : Text, quantity : Nat, unit : Text, minStock : Nat, supplier : Text, notes : Text) : async Text {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized");
+    };
+    verifyCompanyAccess(caller, companyId);
+    let id = "sp-" # nextSparePartId.toText();
+    nextSparePartId += 1;
+    let p : SparePart = { id; companyId; machineId; name; partCode; quantity; unit; minStock; supplier; notes; createdAt = Time.now() };
+    sparePartStore.add(id, p);
+    id;
+  };
+
+  public query ({ caller }) func listSpareParts(companyId : Text) : async [SparePart] {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized");
+    };
+    verifyCompanyAccess(caller, companyId);
+    sparePartStore.values().toArray().filter(func(p) { p.companyId == companyId });
+  };
+
+  public shared ({ caller }) func updateSparePart(sparePartId : Text, name : Text, partCode : Text, quantity : Nat, unit : Text, minStock : Nat, supplier : Text, notes : Text) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized");
+    };
+    switch (sparePartStore.get(sparePartId)) {
+      case (null) { Runtime.trap("SparePart not found.") };
+      case (?p) {
+        verifyCompanyAccess(caller, p.companyId);
+        let updated : SparePart = { p with name; partCode; quantity; unit; minStock; supplier; notes };
+        sparePartStore.add(sparePartId, updated);
+      };
+    };
+  };
+
+  public shared ({ caller }) func deleteSparePart(sparePartId : Text) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized");
+    };
+    switch (sparePartStore.get(sparePartId)) {
+      case (null) { Runtime.trap("SparePart not found.") };
+      case (?p) {
+        verifyCompanyAccess(caller, p.companyId);
+        sparePartStore.remove(sparePartId);
+      };
+    };
+  };
+
 
 };

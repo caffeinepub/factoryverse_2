@@ -9,6 +9,16 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
   Table,
   TableBody,
   TableCell,
@@ -16,6 +26,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Textarea } from "@/components/ui/textarea";
 import { useActor } from "@/hooks/useActor";
 import {
   AlertTriangle,
@@ -24,7 +35,10 @@ import {
   Loader2,
   MapPin,
   Package,
+  Pencil,
+  Plus,
   Tag,
+  Trash2,
   Wrench,
 } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -35,6 +49,30 @@ interface Props {
   machineId: string;
   navigate: (p: Page) => void;
 }
+
+interface SparePart {
+  id: string;
+  companyId: string;
+  machineId: string;
+  name: string;
+  partCode: string;
+  quantity: bigint;
+  unit: string;
+  minStock: bigint;
+  supplier: string;
+  notes: string;
+  createdAt: bigint;
+}
+
+const emptyPartForm = {
+  name: "",
+  partCode: "",
+  quantity: "0",
+  unit: "adet",
+  minStock: "0",
+  supplier: "",
+  notes: "",
+};
 
 const severityConfig: Record<string, { label: string; cls: string }> = {
   Low: { label: "Düşük", cls: "bg-blue-100 text-blue-700 border-blue-200" },
@@ -167,7 +205,22 @@ export default function MachineDetail({ session, machineId, navigate }: Props) {
   const [maintenancePlans, setMaintenancePlans] = useState<MaintenancePlan[]>(
     [],
   );
+  const [spareParts, setSpareParts] = useState<SparePart[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Spare parts dialog state
+  const [partAddOpen, setPartAddOpen] = useState(false);
+  const [partAddForm, setPartAddForm] = useState(emptyPartForm);
+  const [partAddSubmitting, setPartAddSubmitting] = useState(false);
+  const [partEditOpen, setPartEditOpen] = useState(false);
+  const [partEditTarget, setPartEditTarget] = useState<SparePart | null>(null);
+  const [partEditForm, setPartEditForm] = useState(emptyPartForm);
+  const [partEditSubmitting, setPartEditSubmitting] = useState(false);
+  const [partDeleteOpen, setPartDeleteOpen] = useState(false);
+  const [partDeleteTarget, setPartDeleteTarget] = useState<SparePart | null>(
+    null,
+  );
+  const [partDeleteSubmitting, setPartDeleteSubmitting] = useState(false);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: actor stabilizes after init
   useEffect(() => {
@@ -178,7 +231,7 @@ export default function MachineDetail({ session, machineId, navigate }: Props) {
 
     const load = async () => {
       try {
-        const [allMachines, allFailures, allShipments, allPlans] =
+        const [allMachines, allFailures, allShipments, allPlans, allParts] =
           await Promise.all([
             actor!.listMachines(session.companyId),
             api.listFailures(session.companyId) as Promise<Failure[]>,
@@ -186,6 +239,7 @@ export default function MachineDetail({ session, machineId, navigate }: Props) {
             api.listMaintenancePlans(session.companyId) as Promise<
               MaintenancePlan[]
             >,
+            api.listSpareParts(session.companyId) as Promise<SparePart[]>,
           ]);
         const found = allMachines.find((m) => m.id === machineId);
         if (!found) {
@@ -196,6 +250,7 @@ export default function MachineDetail({ session, machineId, navigate }: Props) {
         setFailures(allFailures.filter((f) => f.machineId === machineId));
         setShipments(allShipments.filter((s) => s.machineId === machineId));
         setMaintenancePlans(allPlans.filter((p) => p.machineId === machineId));
+        setSpareParts(allParts.filter((p) => p.machineId === machineId));
       } catch {
         toast.error("Makine bilgileri yüklenirken hata oluştu.");
       } finally {
@@ -248,6 +303,104 @@ export default function MachineDetail({ session, machineId, navigate }: Props) {
   };
 
   const today = new Date().toISOString().split("T")[0];
+  const isAdmin = session.role === "admin" || session.role === "companyAdmin";
+
+  const handlePartAdd = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!partAddForm.name || !api) return;
+    setPartAddSubmitting(true);
+    try {
+      await api.addSparePart(
+        session.companyId,
+        machineId,
+        partAddForm.name,
+        partAddForm.partCode,
+        BigInt(Number(partAddForm.quantity) || 0),
+        partAddForm.unit,
+        BigInt(Number(partAddForm.minStock) || 0),
+        partAddForm.supplier,
+        partAddForm.notes,
+      );
+      toast.success("Yedek parça eklendi!");
+      setPartAddOpen(false);
+      setPartAddForm(emptyPartForm);
+      const allParts: SparePart[] = await api.listSpareParts(session.companyId);
+      setSpareParts(allParts.filter((p) => p.machineId === machineId));
+    } catch {
+      toast.error("Parça eklenirken hata oluştu.");
+    } finally {
+      setPartAddSubmitting(false);
+    }
+  };
+
+  const handlePartEditOpen = (p: SparePart) => {
+    setPartEditTarget(p);
+    setPartEditForm({
+      name: p.name,
+      partCode: p.partCode,
+      quantity: String(Number(p.quantity)),
+      unit: p.unit,
+      minStock: String(Number(p.minStock)),
+      supplier: p.supplier,
+      notes: p.notes,
+    });
+    setPartEditOpen(true);
+  };
+
+  const handlePartEditSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!partEditTarget || !api) return;
+    setPartEditSubmitting(true);
+    try {
+      await api.updateSparePart(
+        partEditTarget.id,
+        partEditForm.name,
+        partEditForm.partCode,
+        BigInt(Number(partEditForm.quantity) || 0),
+        partEditForm.unit,
+        BigInt(Number(partEditForm.minStock) || 0),
+        partEditForm.supplier,
+        partEditForm.notes,
+      );
+      toast.success("Parça güncellendi.");
+      setSpareParts((prev) =>
+        prev.map((p) =>
+          p.id === partEditTarget.id
+            ? {
+                ...p,
+                name: partEditForm.name,
+                partCode: partEditForm.partCode,
+                quantity: BigInt(Number(partEditForm.quantity) || 0),
+                unit: partEditForm.unit,
+                minStock: BigInt(Number(partEditForm.minStock) || 0),
+                supplier: partEditForm.supplier,
+                notes: partEditForm.notes,
+              }
+            : p,
+        ),
+      );
+      setPartEditOpen(false);
+    } catch {
+      toast.error("Güncelleme sırasında hata oluştu.");
+    } finally {
+      setPartEditSubmitting(false);
+    }
+  };
+
+  const handlePartDeleteConfirm = async () => {
+    if (!partDeleteTarget || !api) return;
+    setPartDeleteSubmitting(true);
+    try {
+      await api.deleteSparePart(partDeleteTarget.id);
+      toast.success("Parça silindi.");
+      setSpareParts((prev) => prev.filter((p) => p.id !== partDeleteTarget.id));
+      setPartDeleteOpen(false);
+    } catch {
+      toast.error("Silme sırasında hata oluştu.");
+    } finally {
+      setPartDeleteSubmitting(false);
+    }
+  };
 
   return (
     <div className="space-y-6" data-ocid="machine-detail.panel">
@@ -533,6 +686,415 @@ export default function MachineDetail({ session, machineId, navigate }: Props) {
                             config={maintenanceStatusConfig}
                           />
                         </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+      {/* Spare Parts Dialogs */}
+      <Dialog open={partAddOpen} onOpenChange={setPartAddOpen}>
+        <DialogContent
+          aria-describedby="add-part-desc"
+          data-ocid="machine-detail.parts.add.dialog"
+        >
+          <DialogHeader>
+            <DialogTitle
+              style={{ fontFamily: "'Bricolage Grotesque', sans-serif" }}
+            >
+              Yedek Parça Ekle
+            </DialogTitle>
+            <DialogDescription id="add-part-desc">
+              Bu makine için yedek parça bilgisi girin.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handlePartAdd} className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5 col-span-2">
+                <Label>Parça Adı *</Label>
+                <Input
+                  value={partAddForm.name}
+                  onChange={(e) =>
+                    setPartAddForm({ ...partAddForm, name: e.target.value })
+                  }
+                  placeholder="Parça adı"
+                  data-ocid="machine-detail.parts.add.input"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Kod</Label>
+                <Input
+                  value={partAddForm.partCode}
+                  onChange={(e) =>
+                    setPartAddForm({ ...partAddForm, partCode: e.target.value })
+                  }
+                  placeholder="P-001"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Birim</Label>
+                <Input
+                  value={partAddForm.unit}
+                  onChange={(e) =>
+                    setPartAddForm({ ...partAddForm, unit: e.target.value })
+                  }
+                  placeholder="adet"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Miktar</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  value={partAddForm.quantity}
+                  onChange={(e) =>
+                    setPartAddForm({ ...partAddForm, quantity: e.target.value })
+                  }
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Min. Stok</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  value={partAddForm.minStock}
+                  onChange={(e) =>
+                    setPartAddForm({ ...partAddForm, minStock: e.target.value })
+                  }
+                />
+              </div>
+              <div className="space-y-1.5 col-span-2">
+                <Label>Tedarikçi</Label>
+                <Input
+                  value={partAddForm.supplier}
+                  onChange={(e) =>
+                    setPartAddForm({ ...partAddForm, supplier: e.target.value })
+                  }
+                  placeholder="Tedarikçi adı"
+                />
+              </div>
+              <div className="space-y-1.5 col-span-2">
+                <Label>Notlar</Label>
+                <Textarea
+                  value={partAddForm.notes}
+                  onChange={(e) =>
+                    setPartAddForm({ ...partAddForm, notes: e.target.value })
+                  }
+                  rows={2}
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setPartAddOpen(false)}
+                data-ocid="machine-detail.parts.add.cancel_button"
+              >
+                İptal
+              </Button>
+              <Button
+                type="submit"
+                disabled={partAddSubmitting}
+                data-ocid="machine-detail.parts.add.submit_button"
+              >
+                {partAddSubmitting ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : null}
+                {partAddSubmitting ? "Kaydediliyor..." : "Ekle"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={partEditOpen} onOpenChange={setPartEditOpen}>
+        <DialogContent
+          aria-describedby="edit-part-desc"
+          data-ocid="machine-detail.parts.edit.dialog"
+        >
+          <DialogHeader>
+            <DialogTitle
+              style={{ fontFamily: "'Bricolage Grotesque', sans-serif" }}
+            >
+              Parça Düzenle
+            </DialogTitle>
+            <DialogDescription id="edit-part-desc">
+              Yedek parça bilgilerini güncelleyin.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handlePartEditSave} className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5 col-span-2">
+                <Label>Parça Adı *</Label>
+                <Input
+                  value={partEditForm.name}
+                  onChange={(e) =>
+                    setPartEditForm({ ...partEditForm, name: e.target.value })
+                  }
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Kod</Label>
+                <Input
+                  value={partEditForm.partCode}
+                  onChange={(e) =>
+                    setPartEditForm({
+                      ...partEditForm,
+                      partCode: e.target.value,
+                    })
+                  }
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Birim</Label>
+                <Input
+                  value={partEditForm.unit}
+                  onChange={(e) =>
+                    setPartEditForm({ ...partEditForm, unit: e.target.value })
+                  }
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Miktar</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  value={partEditForm.quantity}
+                  onChange={(e) =>
+                    setPartEditForm({
+                      ...partEditForm,
+                      quantity: e.target.value,
+                    })
+                  }
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Min. Stok</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  value={partEditForm.minStock}
+                  onChange={(e) =>
+                    setPartEditForm({
+                      ...partEditForm,
+                      minStock: e.target.value,
+                    })
+                  }
+                />
+              </div>
+              <div className="space-y-1.5 col-span-2">
+                <Label>Tedarikçi</Label>
+                <Input
+                  value={partEditForm.supplier}
+                  onChange={(e) =>
+                    setPartEditForm({
+                      ...partEditForm,
+                      supplier: e.target.value,
+                    })
+                  }
+                />
+              </div>
+              <div className="space-y-1.5 col-span-2">
+                <Label>Notlar</Label>
+                <Textarea
+                  value={partEditForm.notes}
+                  onChange={(e) =>
+                    setPartEditForm({ ...partEditForm, notes: e.target.value })
+                  }
+                  rows={2}
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setPartEditOpen(false)}
+                data-ocid="machine-detail.parts.edit.cancel_button"
+              >
+                İptal
+              </Button>
+              <Button
+                type="submit"
+                disabled={partEditSubmitting}
+                data-ocid="machine-detail.parts.edit.submit_button"
+              >
+                {partEditSubmitting ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : null}
+                {partEditSubmitting ? "Kaydediliyor..." : "Güncelle"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={partDeleteOpen} onOpenChange={setPartDeleteOpen}>
+        <DialogContent
+          aria-describedby="delete-part-desc"
+          data-ocid="machine-detail.parts.delete.dialog"
+        >
+          <DialogHeader>
+            <DialogTitle
+              style={{ fontFamily: "'Bricolage Grotesque', sans-serif" }}
+            >
+              Parçayı Sil
+            </DialogTitle>
+            <DialogDescription id="delete-part-desc">
+              <strong>{partDeleteTarget?.name}</strong> adlı parçayı silmek
+              istediğinizden emin misiniz?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setPartDeleteOpen(false)}
+              data-ocid="machine-detail.parts.delete.cancel_button"
+            >
+              İptal
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handlePartDeleteConfirm}
+              disabled={partDeleteSubmitting}
+              data-ocid="machine-detail.parts.delete.confirm_button"
+            >
+              {partDeleteSubmitting ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : null}
+              {partDeleteSubmitting ? "Siliniyor..." : "Sil"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Spare Parts Section */}
+      <Card data-ocid="machine-detail.spare-parts.section">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle
+              className="text-base flex items-center gap-2"
+              style={{ fontFamily: "'Bricolage Grotesque', sans-serif" }}
+            >
+              <Package className="w-4 h-4 text-emerald-500" />
+              Yedek Parçalar
+              {spareParts.length > 0 && (
+                <span className="ml-1 text-xs bg-muted rounded-full px-2 py-0.5 text-muted-foreground font-normal">
+                  {spareParts.length}
+                </span>
+              )}
+            </CardTitle>
+            {isAdmin && (
+              <Button
+                size="sm"
+                onClick={() => {
+                  setPartAddForm(emptyPartForm);
+                  setPartAddOpen(true);
+                }}
+                data-ocid="machine-detail.parts.add.open_modal_button"
+              >
+                <Plus className="w-4 h-4 mr-1" /> Parça Ekle
+              </Button>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent>
+          {spareParts.length === 0 ? (
+            <div
+              className="flex flex-col items-center gap-2 py-8 text-center"
+              data-ocid="machine-detail.spare-parts.empty_state"
+            >
+              <Package className="w-8 h-8 text-muted-foreground/30" />
+              <p className="text-sm text-muted-foreground">
+                Bu makineye ait yedek parça kaydı yok.
+              </p>
+            </div>
+          ) : (
+            <div className="rounded-md border border-border overflow-hidden">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/50">
+                    <TableHead>Parça Adı</TableHead>
+                    <TableHead>Kod</TableHead>
+                    <TableHead>Miktar</TableHead>
+                    <TableHead>Min. Stok</TableHead>
+                    <TableHead className="hidden md:table-cell">
+                      Tedarikçi
+                    </TableHead>
+                    <TableHead className="hidden md:table-cell">
+                      Notlar
+                    </TableHead>
+                    {isAdmin && (
+                      <TableHead className="w-24">İşlemler</TableHead>
+                    )}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {spareParts.map((part, idx) => {
+                    const isLow =
+                      Number(part.quantity) <= Number(part.minStock);
+                    return (
+                      <TableRow
+                        key={part.id}
+                        className={isLow ? "bg-red-50" : ""}
+                        data-ocid={`machine-detail.spare-parts.item.${idx + 1}`}
+                      >
+                        <TableCell className="font-medium">
+                          {part.name}
+                        </TableCell>
+                        <TableCell className="text-sm font-mono text-muted-foreground">
+                          {part.partCode || "—"}
+                        </TableCell>
+                        <TableCell className="text-sm">
+                          <span
+                            className={
+                              isLow ? "text-red-600 font-semibold" : ""
+                            }
+                          >
+                            {isLow ? "⚠️ " : ""}
+                            {String(Number(part.quantity))} {part.unit}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {String(Number(part.minStock))} {part.unit}
+                        </TableCell>
+                        <TableCell className="hidden md:table-cell text-sm text-muted-foreground">
+                          {part.supplier || "—"}
+                        </TableCell>
+                        <TableCell className="hidden md:table-cell text-sm text-muted-foreground">
+                          {part.notes || "—"}
+                        </TableCell>
+                        {isAdmin && (
+                          <TableCell>
+                            <div className="flex items-center gap-1">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="px-2"
+                                onClick={() => handlePartEditOpen(part)}
+                                data-ocid={`machine-detail.spare-parts.edit_button.${idx + 1}`}
+                              >
+                                <Pencil className="w-3.5 h-3.5" />
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="px-2 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                onClick={() => {
+                                  setPartDeleteTarget(part);
+                                  setPartDeleteOpen(true);
+                                }}
+                                data-ocid={`machine-detail.spare-parts.delete_button.${idx + 1}`}
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        )}
                       </TableRow>
                     );
                   })}

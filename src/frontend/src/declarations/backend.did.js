@@ -617,6 +617,19 @@ export const idlFactory = ({ IDL }) => {
     'updateSupplier' : IDL.Func([IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text], [], []),
     'updateSupplierStatus' : IDL.Func([IDL.Text, IDL.Text], [], []),
     'updateTask' : IDL.Func([IDL.Nat, IDL.Text, IDL.Text, IDL.Text], [], []),
+    // Sürüm 28
+    'addSupplierRating' : IDL.Func([IDL.Text, IDL.Text, IDL.Nat, IDL.Text], [IDL.Text], []),
+    'listSupplierRatings' : IDL.Func([IDL.Text], [IDL.Vec(IDL.Record({'id':IDL.Text,'supplierId':IDL.Text,'companyId':IDL.Text,'rating':IDL.Nat,'comment':IDL.Text,'createdAt':IDL.Int}))], ['query']),
+    'getSupplierAverageRating' : IDL.Func([IDL.Text], [IDL.Opt(IDL.Nat)], ['query']),
+    'deleteSupplierRating' : IDL.Func([IDL.Text], [], []),
+    'addAttendance' : IDL.Func([IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text], [IDL.Text], []),
+    'listAttendance' : IDL.Func([IDL.Text], [IDL.Vec(IDL.Record({'id':IDL.Text,'companyId':IDL.Text,'personnelId':IDL.Text,'date':IDL.Text,'status':IDL.Text,'note':IDL.Text,'createdAt':IDL.Int}))], ['query']),
+    'updateAttendance' : IDL.Func([IDL.Text, IDL.Text, IDL.Text], [], []),
+    'deleteAttendance' : IDL.Func([IDL.Text], [], []),
+    'addSparePart' : IDL.Func([IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Nat, IDL.Text, IDL.Nat, IDL.Text, IDL.Text], [IDL.Text], []),
+    'listSpareParts' : IDL.Func([IDL.Text], [IDL.Vec(IDL.Record({'id':IDL.Text,'companyId':IDL.Text,'machineId':IDL.Text,'name':IDL.Text,'partCode':IDL.Text,'quantity':IDL.Nat,'unit':IDL.Text,'minStock':IDL.Nat,'supplier':IDL.Text,'notes':IDL.Text,'createdAt':IDL.Int}))], ['query']),
+    'updateSparePart' : IDL.Func([IDL.Text, IDL.Text, IDL.Text, IDL.Nat, IDL.Text, IDL.Nat, IDL.Text, IDL.Text], [], []),
+    'deleteSparePart' : IDL.Func([IDL.Text], [], []),
   });
 };
 

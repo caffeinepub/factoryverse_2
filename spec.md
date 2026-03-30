@@ -1,29 +1,30 @@
-# FactoryVerse — Sürüm 27
+# FactoryVerse — Sürüm 28
 
 ## Current State
-- Personnel.tsx: Edit/delete dialog kodu mevcut, backend'de `updatePersonnel(id, name, role)` ve `deletePersonnel(id)` API'leri var.
-- Settings.tsx: Sadece bilgi gösterimi var (rol, giriş kodu, sayım kartları). Düzenleme yok. Backend'de `saveCallerUserProfile(UserProfile)` ve `getCallerUserProfile()` mevcut.
-- Suppliers.tsx: Tam CRUD + CSV export var. Puanlama (rating) yok. Backend'de supplier rating API'si yok.
-- HSE.tsx: Tam CRUD var. Grafik/trend yok.
+- Sürüm 27 tamamlandı: personel düzenleme/silme, tedarikçi yıldız puanlama (localStorage), HSE trend grafiği, ayarlar profil düzenleme
+- Tedarikçi puanları şu an localStorage'da, çok cihaz desteği yok
+- Personel devam/yoklama takibi yok
+- Makine yedek parça/stok takibi yok
+- Bildirim merkezi temel düzeyde
 
 ## Requested Changes (Diff)
 
 ### Add
-- Settings sayfasına profil düzenleme formu: kullanıcı adını ve emailini `saveCallerUserProfile` ile kaydedebilsin, `getCallerUserProfile` ile mevcut bilgileri çeksin.
-- Tedarikçiler sayfasına frontend-only yıldız puanı (1-5) UI: localStorage tabanlı, her tedarikçi için görsel yıldız gösterimi ve not alanı. Multi-device sync dışı, görsel kolaylık için.
-- HSE sayfasına aylık trend grafiği: mevcut records'tan aylık kaza/olay sayısını hesaplayarak recharts LineChart ile göster.
-- Personnel.tsx'e edit/delete butonlarının doğru çalıştığını doğrulayın — mevcutsa herhangi bir bug/eksiklik giderin.
+- **Tedarikçi puanlama (backend):** `SupplierRating` tipi (supplierId, companyId, rating 1-5, comment, createdAt). `addSupplierRating`, `getSupplierRatings`, `getSupplierAverageRating` backend fonksiyonları. Tedarikçi listesinde ortalama puan gösterimi.
+- **Personel yoklama takibi:** `Attendance` tipi (id, companyId, personnelId, date, status: present/absent/late/excused, note). `addAttendance`, `listAttendance`, `updateAttendance`, `deleteAttendance` backend fonksiyonları. Yeni "Yoklama" sayfası sidebar'da.
+- **Makine yedek parça takibi:** `SparePart` tipi (id, companyId, machineId, name, partCode, quantity, unit, minStock, supplier, notes). `addSparePart`, `listSpareParts`, `updateSparePart`, `deleteSparePart` backend fonksiyonları. Makine detay sayfasına "Yedek Parçalar" bölümü; düşük stok uyarısı (quantity <= minStock).
+- **Bildirim merkezi geliştirme:** Bildirim tiplerine öncelik (low/medium/high) ve okundu/okunmadı state ekleme; `markNotificationRead`, `markAllNotificationsRead` fonksiyonları.
 
 ### Modify
-- Settings.tsx: Mevcut bilgi kartlarını koru, yeni bölüm olarak "Profil Düzenle" formu ekle (ad ve email).
-- HSE.tsx: Sayfanın üstüne istatistik grafiği bölümü ekle, kaydı altına mevcut tablo.
-- Suppliers.tsx: Her tedarikçi satırına görsel yıldız puanı ekle (1-5, tıklayarak seçilebilir).
+- Tedarikçiler sayfası: localStorage puanlama kaldırılıp backend'den ortalama puan gösterilecek, yorum ekleme formu
+- Makine detay sayfası: Yedek Parçalar bölümü ekleniyor
+- Sidebar: "Yoklama" menü öğesi ekleniyor
+- Notifications sayfası: okundu/okunmadı + öncelik badge'leri
 
 ### Remove
-- Hiçbir şey kaldırılmıyor.
+- Tedarikçi puanlama localStorage kullanımı
 
 ## Implementation Plan
-1. Settings.tsx: `getCallerUserProfile` ile profil yükle, ad/email formu + kaydet butonu + `saveCallerUserProfile` çağrısı ekle.
-2. Suppliers.tsx: Her tedarikçi için `supplierRatings` state objesi tut (localStorage'dan başlat), tablo hücresine 5 yıldız bileşeni ekle (tıklanabilir, sarı dolgu).
-3. HSE.tsx: Records yüklenince aylık grupla (son 6 ay), recharts ResponsiveContainer+LineChart ile göster. Import: recharts.
-4. Personnel.tsx: Edit/delete zaten kodda var; `updatePersonnel` ve `deletePersonnel` API çağrıları doğru mu kontrol et. Gerekirse düzelt.
+1. Backend: SupplierRating, Attendance, SparePart tipleri ve CRUD fonksiyonları; Notification güncellemesi
+2. backend.d.ts ve backend.did.js güncelleme
+3. Frontend: Yoklama sayfası (yeni), Tedarikçiler sayfası güncelleme, Makine detay güncelleme, Bildirimler güncelleme, Sidebar güncelleme

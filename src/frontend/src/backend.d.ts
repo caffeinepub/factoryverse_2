@@ -253,6 +253,20 @@ export interface backendInterface {
     updateFailure(failureId: string, title: string, description: string, severity: string): Promise<void>;
     deleteFailure(failureId: string): Promise<void>;
 
+    // Sürüm 28
+    addSupplierRating(supplierId: string, companyId: string, rating: bigint, comment: string): Promise<string>;
+    listSupplierRatings(supplierId: string): Promise<Array<SupplierRating>>;
+    getSupplierAverageRating(supplierId: string): Promise<[] | [bigint]>;
+    deleteSupplierRating(ratingId: string): Promise<void>;
+    addAttendance(companyId: string, personnelId: string, date: string, status: string, note: string): Promise<string>;
+    listAttendance(companyId: string): Promise<Array<Attendance>>;
+    updateAttendance(attendanceId: string, status: string, note: string): Promise<void>;
+    deleteAttendance(attendanceId: string): Promise<void>;
+    addSparePart(companyId: string, machineId: string, name: string, partCode: string, quantity: bigint, unit: string, minStock: bigint, supplier: string, notes: string): Promise<string>;
+    listSpareParts(companyId: string): Promise<Array<SparePart>>;
+    updateSparePart(sparePartId: string, name: string, partCode: string, quantity: bigint, unit: string, minStock: bigint, supplier: string, notes: string): Promise<void>;
+    deleteSparePart(sparePartId: string): Promise<void>;
+
 }
 
 // Sürüm 22 additions
@@ -268,5 +282,42 @@ export interface Supplier {
     address: string;
     notes: string;
     status: string;
+    createdAt: Timestamp;
+}
+
+// Sürüm 28 additions
+export type SupplierRatingId = string;
+export interface SupplierRating {
+    id: SupplierRatingId;
+    supplierId: string;
+    companyId: string;
+    rating: bigint;
+    comment: string;
+    createdAt: Timestamp;
+}
+
+export type AttendanceId = string;
+export interface Attendance {
+    id: AttendanceId;
+    companyId: string;
+    personnelId: string;
+    date: string;
+    status: string;
+    note: string;
+    createdAt: Timestamp;
+}
+
+export type SparePartId = string;
+export interface SparePart {
+    id: SparePartId;
+    companyId: string;
+    machineId: string;
+    name: string;
+    partCode: string;
+    quantity: bigint;
+    unit: string;
+    minStock: bigint;
+    supplier: string;
+    notes: string;
     createdAt: Timestamp;
 }
