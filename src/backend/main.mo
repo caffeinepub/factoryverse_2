@@ -318,6 +318,7 @@ actor {
   var nextSparePartId = 1;
   let shiftStore = Map.empty<ShiftId, Shift>();
   var nextShiftId = 1;
+  var codeCounter : Nat = 0;
   let projectBudgetStore = Map.empty<ProjectId, Float>();
 
   func getNextCompanyId() : CompanyId {
@@ -386,6 +387,25 @@ actor {
     let id = nextProjectAssignmentId.toText();
     nextProjectAssignmentId += 1;
     id;
+  };
+
+  func generateUniqueCode() : Text {
+    codeCounter += 1;
+    let chars : [Char] = [
+      'A','B','C','D','E','F','G','H','I','J','K','L','M',
+      'N','O','P','Q','R','S','T','U','V','W','X','Y','Z',
+      '0','1','2','3','4','5','6','7','8','9'
+    ];
+    let base : Nat = 36;
+    var seed : Nat = (codeCounter * 1664525 + 1013904223) % 4294967296;
+    var result : Text = "";
+    var i : Nat = 0;
+    while (i < 12) {
+      i += 1;
+      seed := (seed * 1664525 + 1013904223) % 4294967296;
+      result #= Text.fromChar(chars[seed % base]);
+    };
+    result
   };
 
   func checkCompanyExists(id : CompanyId) : Bool {
@@ -475,7 +495,7 @@ actor {
       case null {};
     };
     let id = getNextCompanyId();
-    let adminCode = id.concat("A");
+    let adminCode = generateUniqueCode();
     let company : Company = { id; name; mode; adminCode; createdAt = Time.now() };
     companies.add(id, company);
     principalToCompany.add(caller, id);
@@ -500,8 +520,8 @@ actor {
       case null {};
     };
     let id = getNextPersonnelId();
-    let loginCode = "LP".concat(id);
-    let inviteCode = "GL".concat(id);
+    let loginCode = generateUniqueCode();
+    let inviteCode = generateUniqueCode();
     let personnelRecord : Personnel = { id; companyId = null; name; role; loginCode; inviteCode; createdAt = Time.now() };
     if (checkPersonnelExists(id)) { Runtime.trap("Personnel already exists.") };
     personnel.add(id, personnelRecord);
@@ -1445,7 +1465,7 @@ actor {
           case (null) { Runtime.trap("Personnel not in a company.") };
           case (?cid) {
             verifyCompanyAccess(caller, cid);
-            let newCode = "LP" # Time.now().toText();
+            let newCode = generateUniqueCode();
             let updated : Personnel = { p with loginCode = newCode };
             personnel.add(personnelId, updated);
             newCode;
