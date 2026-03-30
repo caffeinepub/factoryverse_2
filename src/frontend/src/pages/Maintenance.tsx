@@ -1,0 +1,454 @@
+import type { Session } from "@/App";
+import type { FailureWithProject as Failure } from "@/backend.d";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Textarea } from "@/components/ui/textarea";
+import { useActor } from "@/hooks/useActor";
+import { ChevronDown, Loader2, Plus, Wrench } from "lucide-react";
+import { useEffect, useState } from "react";
+import { toast } from "sonner";
+
+interface Props {
+  session: Session;
+}
+
+interface Project {
+  id: string;
+  name: string;
+}
+
+const severityConfig: Record<string, { label: string; cls: string }> = {
+  low: { label: "Düşük", cls: "bg-gray-100 text-gray-600 border-gray-200" },
+  medium: {
+    label: "Orta",
+    cls: "bg-yellow-100 text-yellow-700 border-yellow-200",
+  },
+  high: {
+    label: "Yüksek",
+    cls: "bg-orange-100 text-orange-700 border-orange-200",
+  },
+  critical: { label: "Kritik", cls: "bg-red-100 text-red-700 border-red-200" },
+};
+
+const statusConfig: Record<string, { label: string; cls: string }> = {
+  open: { label: "Açık", cls: "bg-red-100 text-red-700 border-red-200" },
+  "in-progress": {
+    label: "İşlemde",
+    cls: "bg-blue-100 text-blue-700 border-blue-200",
+  },
+  resolved: {
+    label: "Çözüldü",
+    cls: "bg-green-100 text-green-700 border-green-200",
+  },
+};
+
+const statusOptions = Object.entries(statusConfig).map(
+  ([value, { label }]) => ({ value, label }),
+);
+
+export default function Maintenance({ session }: Props) {
+  const { actor } = useActor();
+  const api = actor as any;
+  const [failures, setFailures] = useState<Failure[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  const [form, setForm] = useState({
+    title: "",
+    machineId: "",
+    description: "",
+    severity: "medium",
+    reportedBy: "",
+    projectId: "",
+  });
+
+  const loadData = async () => {
+    if (!session.companyId || !api) {
+      setLoading(false);
+      return;
+    }
+    try {
+      const [data, projs] = await Promise.all([
+        api.listFailures(session.companyId) as Promise<Failure[]>,
+        api.listProjects(session.companyId) as Promise<Project[]>,
+      ]);
+      setFailures(data);
+      setProjects(projs);
+    } catch {
+      toast.error("Veriler yüklenirken hata oluştu.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: actor stabilizes after init
+  useEffect(() => {
+    loadData();
+  }, [session.companyId, actor]);
+
+  const handleAdd = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form.title) {
+      toast.error("Başlık zorunludur.");
+      return;
+    }
+    if (!api) {
+      toast.error("Bağlantı hatası.");
+      return;
+    }
+    setSubmitting(true);
+    try {
+      await api.addFailure(
+        form.machineId,
+        session.companyId,
+        form.title,
+        form.description,
+        form.severity,
+        form.reportedBy,
+        form.projectId,
+      );
+      toast.success("Arıza bildirildi!");
+      setDialogOpen(false);
+      setForm({
+        title: "",
+        machineId: "",
+        description: "",
+        severity: "medium",
+        reportedBy: "",
+        projectId: "",
+      });
+      await loadData();
+    } catch {
+      toast.error("Arıza eklenirken hata oluştu.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleStatusChange = async (failureId: string, status: string) => {
+    if (!api) return;
+    try {
+      await api.updateFailureStatus(failureId, status);
+      toast.success("Durum güncellendi.");
+      setFailures((prev) =>
+        prev.map((f) => (f.id === failureId ? { ...f, status } : f)),
+      );
+    } catch {
+      toast.error("Durum güncellenirken hata oluştu.");
+    }
+  };
+
+  const formatDate = (ts: bigint) => {
+    try {
+      return new Date(Number(ts) / 1_000_000).toLocaleDateString("tr-TR");
+    } catch {
+      return "—";
+    }
+  };
+
+  const getProjectName = (projectId: string) => {
+    if (!projectId) return null;
+    const p = projects.find((x) => x.id === projectId);
+    return p ? p.name : null;
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2
+            className="text-2xl font-bold"
+            style={{ fontFamily: "'Bricolage Grotesque', sans-serif" }}
+          >
+            Bakım & Arıza
+          </h2>
+          <p className="text-muted-foreground text-sm">
+            {failures.length} kayıt
+          </p>
+        </div>
+        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          <DialogTrigger asChild>
+            <Button data-ocid="maintenance.add.open_modal_button">
+              <Plus className="w-4 h-4 mr-2" /> Arıza Bildir
+            </Button>
+          </DialogTrigger>
+          <DialogContent aria-describedby="add-failure-desc">
+            <DialogHeader>
+              <DialogTitle
+                style={{ fontFamily: "'Bricolage Grotesque', sans-serif" }}
+              >
+                Arıza Bildir
+              </DialogTitle>
+              <DialogDescription id="add-failure-desc">
+                Arıza bilgilerini doldurun ve kaydedin.
+              </DialogDescription>
+            </DialogHeader>
+            <form
+              onSubmit={handleAdd}
+              className="space-y-3"
+              data-ocid="maintenance.add.dialog"
+            >
+              <div className="space-y-1.5">
+                <Label>Başlık *</Label>
+                <Input
+                  value={form.title}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, title: e.target.value }))
+                  }
+                  placeholder="Pompa arızası"
+                  data-ocid="maintenance.title.input"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Makine ID (opsiyonel)</Label>
+                <Input
+                  value={form.machineId}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, machineId: e.target.value }))
+                  }
+                  placeholder="Makine kodu veya adı"
+                  data-ocid="maintenance.machine.input"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>İlgili Proje (opsiyonel)</Label>
+                <Select
+                  value={form.projectId}
+                  onValueChange={(v) =>
+                    setForm((f) => ({
+                      ...f,
+                      projectId: v === "__none" ? "" : v,
+                    }))
+                  }
+                >
+                  <SelectTrigger data-ocid="maintenance.project.select">
+                    <SelectValue placeholder="Proje seçin (opsiyonel)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none">— Proje bağlama —</SelectItem>
+                    {projects.map((p) => (
+                      <SelectItem key={p.id} value={p.id}>
+                        {p.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Açıklama</Label>
+                <Textarea
+                  value={form.description}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, description: e.target.value }))
+                  }
+                  rows={3}
+                  placeholder="Arıza detayları..."
+                  data-ocid="maintenance.description.textarea"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label>Önem Derecesi</Label>
+                  <Select
+                    value={form.severity}
+                    onValueChange={(v) =>
+                      setForm((f) => ({ ...f, severity: v }))
+                    }
+                  >
+                    <SelectTrigger data-ocid="maintenance.severity.select">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="low">Düşük</SelectItem>
+                      <SelectItem value="medium">Orta</SelectItem>
+                      <SelectItem value="high">Yüksek</SelectItem>
+                      <SelectItem value="critical">Kritik</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Bildiren</Label>
+                  <Input
+                    value={form.reportedBy}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, reportedBy: e.target.value }))
+                    }
+                    placeholder="Ad Soyad"
+                    data-ocid="maintenance.reporter.input"
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setDialogOpen(false)}
+                  data-ocid="maintenance.add.cancel_button"
+                >
+                  İptal
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={submitting}
+                  data-ocid="maintenance.add.submit_button"
+                >
+                  {submitting ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : null}
+                  {submitting ? "Kaydediliyor..." : "Kaydet"}
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      {loading ? (
+        <div
+          className="flex items-center justify-center h-40"
+          data-ocid="maintenance.loading_state"
+        >
+          <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+        </div>
+      ) : failures.length === 0 ? (
+        <Card data-ocid="maintenance.empty_state">
+          <CardContent className="pt-12 pb-12 flex flex-col items-center gap-3 text-center">
+            <Wrench className="w-12 h-12 text-muted-foreground/40" />
+            <p className="font-medium">Henüz arıza kaydı yok</p>
+            <p className="text-muted-foreground text-sm">
+              Arıza bildirmek için yukarıdaki butonu kullanın.
+            </p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="rounded-lg border border-border overflow-hidden">
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-muted/50">
+                <TableHead>Başlık</TableHead>
+                <TableHead className="hidden md:table-cell">Makine</TableHead>
+                <TableHead className="hidden lg:table-cell">Proje</TableHead>
+                <TableHead>Önem</TableHead>
+                <TableHead>Durum</TableHead>
+                <TableHead className="hidden md:table-cell">Bildiren</TableHead>
+                <TableHead className="hidden md:table-cell">Tarih</TableHead>
+                <TableHead className="w-28">İşlemler</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {failures.map((f, idx) => {
+                const sev = severityConfig[f.severity] ?? {
+                  label: f.severity,
+                  cls: "bg-gray-100 text-gray-600 border-gray-200",
+                };
+                const st = statusConfig[f.status] ?? {
+                  label: f.status,
+                  cls: "bg-gray-100 text-gray-600 border-gray-200",
+                };
+                const projName = getProjectName(f.projectId);
+                return (
+                  <TableRow
+                    key={f.id}
+                    data-ocid={`maintenance.item.${idx + 1}`}
+                  >
+                    <TableCell className="font-medium">{f.title}</TableCell>
+                    <TableCell className="hidden md:table-cell text-muted-foreground">
+                      {f.machineId || "—"}
+                    </TableCell>
+                    <TableCell className="hidden lg:table-cell">
+                      {projName ? (
+                        <span className="text-xs px-2 py-1 rounded-full bg-indigo-100 text-indigo-700 font-medium">
+                          {projName}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground text-xs">—</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <span
+                        className={`text-xs px-2 py-1 rounded-full font-medium border ${sev.cls}`}
+                      >
+                        {sev.label}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      <span
+                        className={`text-xs px-2 py-1 rounded-full font-medium border ${st.cls}`}
+                      >
+                        {st.label}
+                      </span>
+                    </TableCell>
+                    <TableCell className="hidden md:table-cell text-muted-foreground">
+                      {f.reportedBy || "—"}
+                    </TableCell>
+                    <TableCell className="hidden md:table-cell text-muted-foreground">
+                      {formatDate(f.reportedAt)}
+                    </TableCell>
+                    <TableCell>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-xs"
+                            data-ocid={`maintenance.status.${idx + 1}`}
+                          >
+                            Durum <ChevronDown className="w-3 h-3 ml-1" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent>
+                          {statusOptions.map((s) => (
+                            <DropdownMenuItem
+                              key={s.value}
+                              onClick={() => handleStatusChange(f.id, s.value)}
+                            >
+                              {s.label}
+                            </DropdownMenuItem>
+                          ))}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+    </div>
+  );
+}
