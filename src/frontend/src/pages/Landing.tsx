@@ -2,11 +2,16 @@ import type { Page } from "@/App";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
+  ArrowDown,
+  ArrowRight,
+  Building2,
   ChevronRight,
   ClipboardList,
   Factory,
+  Layers,
   ShieldCheck,
   Truck,
+  UserPlus,
   Wrench,
 } from "lucide-react";
 
@@ -44,6 +49,36 @@ const features = [
     icon: <Factory className="w-6 h-6" />,
     title: "Çok Şirketli Yapı",
     desc: "Her şirket kendi izole ekosisteminde çalışır. Veri güvenliği garantiyle çok kiracılı mimari.",
+  },
+];
+
+const steps = [
+  {
+    number: "01",
+    icon: <Building2 className="w-7 h-7" />,
+    title: "Şirket Kur",
+    desc: "Birkaç dakikada şirketinizi sisteme kaydedin. Size özel 12 karakterli yönetici kodu oluşturulur.",
+    color: "from-indigo-500 to-indigo-700",
+    lightBg: "bg-indigo-50",
+    textColor: "text-indigo-600",
+  },
+  {
+    number: "02",
+    icon: <UserPlus className="w-7 h-7" />,
+    title: "Personel Ekle",
+    desc: "Personeliniz self kayıt formuyla sisteme katılabilir ya da siz admin panelinden ekleyebilirsiniz.",
+    color: "from-violet-500 to-violet-700",
+    lightBg: "bg-violet-50",
+    textColor: "text-violet-600",
+  },
+  {
+    number: "03",
+    icon: <Layers className="w-7 h-7" />,
+    title: "Modülleri Kullan",
+    desc: "Makine, proje, bakım, görev, İSG, lojistik ve daha fazla modüle hemen erişin.",
+    color: "from-fuchsia-500 to-fuchsia-700",
+    lightBg: "bg-fuchsia-50",
+    textColor: "text-fuchsia-600",
   },
 ];
 
@@ -117,7 +152,7 @@ export default function Landing({ navigate }: Props) {
               <Button
                 size="lg"
                 variant="outline"
-                className="border-white/40 text-white hover:bg-white/10 font-semibold text-base"
+                className="border-2 border-white/70 bg-transparent text-white hover:bg-white/15 hover:text-white font-semibold text-base"
                 onClick={() => navigate("login")}
                 data-ocid="hero.login.button"
               >
@@ -168,6 +203,100 @@ export default function Landing({ navigate }: Props) {
               </CardContent>
             </Card>
           ))}
+        </div>
+      </section>
+
+      {/* How to Start */}
+      <section
+        className="py-20"
+        style={{
+          background:
+            "linear-gradient(180deg, transparent 0%, rgba(67,56,202,0.06) 30%, rgba(67,56,202,0.06) 70%, transparent 100%)",
+        }}
+        data-ocid="landing.howtostart.section"
+      >
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-14">
+            <h2
+              className="text-3xl md:text-4xl font-bold mb-4"
+              style={{ fontFamily: "'Bricolage Grotesque', sans-serif" }}
+            >
+              Nasıl Başlarsınız?
+            </h2>
+            <p className="text-muted-foreground text-lg max-w-xl mx-auto">
+              Üç adımda operasyonlarınızı dijitalleştirin.
+            </p>
+          </div>
+
+          {/* Steps */}
+          <div className="flex flex-col md:flex-row items-center md:items-start gap-6 md:gap-4">
+            {steps.map((step, index) => (
+              <div
+                key={step.number}
+                className="flex flex-col md:flex-row items-center md:items-start flex-1 gap-4 md:gap-0"
+              >
+                {/* Step card */}
+                <div className="flex-1 flex flex-col items-center text-center px-2 md:px-4">
+                  {/* Number + icon circle */}
+                  <div
+                    className={`w-20 h-20 rounded-2xl bg-gradient-to-br ${step.color} text-white flex flex-col items-center justify-center mb-4 shadow-lg flex-shrink-0`}
+                  >
+                    {step.icon}
+                    <span className="text-white/80 text-xs font-bold mt-1">
+                      {step.number}
+                    </span>
+                  </div>
+                  <h3
+                    className="font-bold text-lg mb-2"
+                    style={{ fontFamily: "'Bricolage Grotesque', sans-serif" }}
+                  >
+                    {step.title}
+                  </h3>
+                  <p className="text-muted-foreground text-sm leading-relaxed max-w-xs">
+                    {step.desc}
+                  </p>
+                </div>
+
+                {/* Connector */}
+                {index < steps.length - 1 && (
+                  <>
+                    {/* Desktop: right arrow */}
+                    <div className="hidden md:flex items-center justify-center flex-shrink-0 pt-8 text-muted-foreground/40">
+                      <ArrowRight className="w-7 h-7" />
+                    </div>
+                    {/* Mobile: down arrow */}
+                    <div className="flex md:hidden items-center justify-center text-muted-foreground/40">
+                      <ArrowDown className="w-6 h-6" />
+                    </div>
+                  </>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* CTA below steps */}
+          <div className="text-center mt-12">
+            <Button
+              size="lg"
+              onClick={() => navigate("register")}
+              data-ocid="howtostart.register.button"
+              className="font-semibold"
+            >
+              Hemen Başla
+              <ChevronRight className="w-4 h-4 ml-1" />
+            </Button>
+            <p className="text-muted-foreground text-sm mt-3">
+              Zaten hesabınız var mı?{" "}
+              <button
+                type="button"
+                onClick={() => navigate("login")}
+                className="text-primary hover:underline font-medium"
+                data-ocid="howtostart.login.button"
+              >
+                Giriş Yap
+              </button>
+            </p>
+          </div>
         </div>
       </section>
 

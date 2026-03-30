@@ -33,7 +33,8 @@ export type Page =
   | "suppliers"
   | "attendance"
   | "activity-log"
-  | "shifts";
+  | "shifts"
+  | "help";
 
 export interface Session {
   companyId: string;

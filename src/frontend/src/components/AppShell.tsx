@@ -10,6 +10,7 @@ import Dashboard from "@/pages/Dashboard";
 import Documents from "@/pages/Documents";
 import GanttCalendar from "@/pages/GanttCalendar";
 import HSE from "@/pages/HSE";
+import Help from "@/pages/Help";
 import Logistics from "@/pages/Logistics";
 import MachineDetail from "@/pages/MachineDetail";
 import Machines from "@/pages/Machines";
@@ -41,6 +42,7 @@ import {
   Factory,
   FileText,
   FolderKanban,
+  HelpCircle,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -92,6 +94,7 @@ const navItems = [
   { id: "attendance" as Page, label: "Yoklama", icon: UserCheck },
   { id: "shifts" as Page, label: "Vardiya Yönetimi", icon: CalendarClock },
   { id: "activity-log" as Page, label: "Aktivite Logu", icon: Clock },
+  { id: "help" as Page, label: "Yardım", icon: HelpCircle },
   { id: "settings" as Page, label: "Ayarlar", icon: Settings },
 ];
 
@@ -156,6 +159,7 @@ export default function AppShell({
     attendance: "Yoklama Takibi",
     "activity-log": "Aktivite Logu",
     shifts: "Vardiya Yönetimi",
+    help: "Kullanım Kılavuzu",
     landing: "Ana Sayfa",
     login: "Giriş",
     register: "Kayıt",
@@ -248,6 +252,8 @@ export default function AppShell({
         return <ActivityLog session={session} />;
       case "shifts":
         return <ShiftManagement session={session} />;
+      case "help":
+        return <Help />;
       default:
         return <Dashboard session={session} navigate={navigate} />;
     }
