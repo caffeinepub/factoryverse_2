@@ -35,7 +35,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useActor } from "@/hooks/useActor";
-import { Info, Loader2, Pencil, Trash2, Users } from "lucide-react";
+import { FileDown, Info, Loader2, Pencil, Trash2, Users } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -50,6 +50,21 @@ const roleLabelMap: Record<string, string> = {
   user: "Personel",
   guest: "Misafir",
 };
+
+function downloadCsv(filename: string, headers: string[], rows: string[][]) {
+  const csvEsc = (v: string) => `"${v.replace(/"/g, '""')}"`;
+  const csv = [
+    headers.map(csvEsc).join(","),
+    ...rows.map((r) => r.map(csvEsc).join(",")),
+  ].join("\n");
+  const blob = new Blob([`\uFEFF${csv}`], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
 
 export default function PersonnelPage({ session }: Props) {
   const { actor } = useActor();
@@ -166,18 +181,43 @@ export default function PersonnelPage({ session }: Props) {
     }
   };
 
+  const handleExportCsv = () => {
+    downloadCsv(
+      "personel.csv",
+      ["Ad Soyad", "Rol", "Giriş Kodu", "Davet Kodu"],
+      personnel.map((p) => [
+        p.name || "",
+        roleLabelMap[p.role] ?? p.role,
+        p.loginCode || "",
+        p.inviteCode || "",
+      ]),
+    );
+  };
+
   return (
     <div className="space-y-6">
-      <div>
-        <h2
-          className="text-2xl font-bold"
-          style={{ fontFamily: "'Bricolage Grotesque', sans-serif" }}
-        >
-          Personel Yönetimi
-        </h2>
-        <p className="text-muted-foreground text-sm">
-          Şirket personellerini yönetin.
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2
+            className="text-2xl font-bold"
+            style={{ fontFamily: "'Bricolage Grotesque', sans-serif" }}
+          >
+            Personel Yönetimi
+          </h2>
+          <p className="text-muted-foreground text-sm">
+            Şirket personellerini yönetin.
+          </p>
+        </div>
+        {personnel.length > 0 && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleExportCsv}
+            data-ocid="personnel.csv.button"
+          >
+            <FileDown className="w-4 h-4 mr-2" /> CSV İndir
+          </Button>
+        )}
       </div>
 
       {/* Personnel List */}
@@ -488,7 +528,7 @@ export default function PersonnelPage({ session }: Props) {
               ) : (
                 <Users className="w-4 h-4 mr-2" />
               )}
-              {loading ? "Ekleniyor..." : "Personeli Şirkete Ekle"}
+              {loading ? "Ekleniyor..." : "Personeli şirkete Ekle"}
             </Button>
           </form>
         </CardContent>

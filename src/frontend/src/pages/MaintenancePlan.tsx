@@ -39,6 +39,7 @@ import { useActor } from "@/hooks/useActor";
 import {
   ChevronDown,
   ClipboardCheck,
+  Link2,
   Loader2,
   Pencil,
   Plus,
@@ -49,6 +50,11 @@ import { toast } from "sonner";
 
 interface Props {
   session: Session;
+}
+
+interface ProjectItem {
+  id: string;
+  name: string;
 }
 
 const statusConfig: Record<string, { label: string; cls: string }> = {
@@ -105,6 +111,43 @@ export default function MaintenancePlanPage({ session }: Props) {
   const [editSaving, setEditSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
+  // Project link state
+  const [projects, setProjects] = useState<ProjectItem[]>([]);
+  const [planProjectMap, setPlanProjectMap] = useState<Record<string, string>>(
+    {},
+  );
+  const [linkProjectOpen, setLinkProjectOpen] = useState(false);
+  const [linkPlanTarget, setLinkPlanTarget] = useState<MaintenancePlan | null>(
+    null,
+  );
+  const [selectedProjectId, setSelectedProjectId] = useState("");
+  const [linkProjectSaving, setLinkProjectSaving] = useState(false);
+
+  const loadProjects = async () => {
+    if (!actor || !session.companyId) return;
+    try {
+      const [projs, planProjs] = await Promise.all([
+        actor.listProjects(session.companyId) as Promise<ProjectItem[]>,
+        api.listMaintenancePlanProjects
+          ? api.listMaintenancePlanProjects(session.companyId)
+          : Promise.resolve([]),
+      ]);
+      setProjects(projs);
+      // Build map from array of {planId, projectId} or map directly
+      if (Array.isArray(planProjs)) {
+        const map: Record<string, string> = {};
+        for (const item of planProjs as any[]) {
+          if (item?.planId && item?.projectId)
+            map[item.planId] = item.projectId;
+          else if (item?.[0] && item?.[1]) map[item[0]] = item[1];
+        }
+        setPlanProjectMap(map);
+      }
+    } catch {
+      // ignore
+    }
+  };
+
   const loadPlans = async () => {
     if (!actor) return;
     try {
@@ -124,6 +167,7 @@ export default function MaintenancePlanPage({ session }: Props) {
   // biome-ignore lint/correctness/useExhaustiveDependencies: actor stabilizes after init
   useEffect(() => {
     loadPlans();
+    loadProjects();
   }, [actor]);
 
   const handleSubmit = async () => {
@@ -201,6 +245,33 @@ export default function MaintenancePlanPage({ session }: Props) {
       toast.error("Güncelleme başarısız.");
     } finally {
       setEditSaving(false);
+    }
+  };
+
+  const openLinkProject = (plan: MaintenancePlan) => {
+    setLinkPlanTarget(plan);
+    setSelectedProjectId(planProjectMap[plan.id] ?? "");
+    setLinkProjectOpen(true);
+  };
+
+  const handleLinkProject = async () => {
+    if (!linkPlanTarget || !api) return;
+    setLinkProjectSaving(true);
+    try {
+      await api.linkMaintenancePlanToProject(
+        linkPlanTarget.id,
+        selectedProjectId,
+      );
+      setPlanProjectMap((prev) => ({
+        ...prev,
+        [linkPlanTarget.id]: selectedProjectId,
+      }));
+      toast.success("Bakım planı projeye bağlandı.");
+      setLinkProjectOpen(false);
+    } catch {
+      toast.error("Bağlama sırasında hata oluştu.");
+    } finally {
+      setLinkProjectSaving(false);
     }
   };
 
@@ -446,8 +517,21 @@ export default function MaintenancePlanPage({ session }: Props) {
                     return (
                       <TableRow key={plan.id}>
                         <TableCell>
-                          <div className="font-medium text-sm">
-                            {plan.title}
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-medium text-sm">
+                              {plan.title}
+                            </span>
+                            {planProjectMap[plan.id] &&
+                              (() => {
+                                const proj = projects.find(
+                                  (p) => p.id === planProjectMap[plan.id],
+                                );
+                                return proj ? (
+                                  <span className="text-xs px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700 font-medium">
+                                    {proj.name}
+                                  </span>
+                                ) : null;
+                              })()}
                           </div>
                           {plan.machineId && (
                             <div className="text-xs text-muted-foreground mt-0.5">
@@ -505,6 +589,16 @@ export default function MaintenancePlanPage({ session }: Props) {
                                     <Trash2 className="w-3.5 h-3.5" />
                                   )}
                                 </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 text-indigo-400 hover:text-indigo-600 hover:bg-indigo-50"
+                                  onClick={() => openLinkProject(plan)}
+                                  title="Projeye Bağla"
+                                  data-ocid="maintenance-plan.link_button"
+                                >
+                                  <Link2 className="w-3.5 h-3.5" />
+                                </Button>
                               </>
                             )}
                             <DropdownMenu>
@@ -553,6 +647,59 @@ export default function MaintenancePlanPage({ session }: Props) {
           </CardContent>
         </Card>
       )}
+
+      {/* Link to Project Dialog */}
+      <Dialog open={linkProjectOpen} onOpenChange={setLinkProjectOpen}>
+        <DialogContent aria-describedby="link-project-desc">
+          <DialogHeader>
+            <DialogTitle
+              style={{ fontFamily: "'Bricolage Grotesque', sans-serif" }}
+            >
+              Projeye Bağla
+            </DialogTitle>
+            <DialogDescription id="link-project-desc">
+              "{linkPlanTarget?.title}" bakım planını bir projeye bağlayın.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <Label>Proje Seçin</Label>
+            <Select
+              value={selectedProjectId}
+              onValueChange={setSelectedProjectId}
+            >
+              <SelectTrigger data-ocid="maintenance-plan.link-project.select">
+                <SelectValue placeholder="Proje seçin" />
+              </SelectTrigger>
+              <SelectContent>
+                {projects.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>
+                    {p.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setLinkProjectOpen(false)}
+              data-ocid="maintenance-plan.link-project.cancel_button"
+            >
+              İptal
+            </Button>
+            <Button
+              onClick={handleLinkProject}
+              disabled={!selectedProjectId || linkProjectSaving}
+              data-ocid="maintenance-plan.link-project.confirm_button"
+            >
+              {linkProjectSaving && (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              )}
+              {linkProjectSaving ? "Bağlanıyor..." : "Bağla"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Edit Dialog */}
       <Dialog open={editOpen} onOpenChange={setEditOpen}>

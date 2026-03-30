@@ -14,6 +14,17 @@ import {
   PlayCircle,
 } from "lucide-react";
 import { useEffect, useState } from "react";
+import {
+  Bar,
+  BarChart,
+  Cell,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 
 interface Props {
   session: Session;
@@ -23,10 +34,11 @@ interface Props {
 const projectStatusMap: Record<string, { label: string; cls: string }> = {
   active: { label: "Aktif", cls: "bg-green-100 text-green-700" },
   Active: { label: "Aktif", cls: "bg-green-100 text-green-700" },
-  completed: { label: "Tamamland\u0131", cls: "bg-blue-100 text-blue-700" },
-  Completed: { label: "Tamamland\u0131", cls: "bg-blue-100 text-blue-700" },
+  completed: { label: "Tamamlandı", cls: "bg-blue-100 text-blue-700" },
+  Completed: { label: "Tamamlandı", cls: "bg-blue-100 text-blue-700" },
   planning: { label: "Planlama", cls: "bg-yellow-100 text-yellow-700" },
   Planning: { label: "Planlama", cls: "bg-yellow-100 text-yellow-700" },
+  OnHold: { label: "Beklemede", cls: "bg-orange-100 text-orange-700" },
   paused: { label: "Durduruldu", cls: "bg-gray-100 text-gray-600" },
 };
 
@@ -83,7 +95,7 @@ export default function Dashboard({ session, navigate }: Props) {
       color: "text-green-600",
     },
     {
-      label: "A\u00e7\u0131k Ar\u0131za",
+      label: "Açık Arıza",
       value: openFailures.length,
       icon: AlertTriangle,
       color: openFailures.length > 0 ? "text-red-500" : "text-slate-400",
@@ -94,6 +106,45 @@ export default function Dashboard({ session, navigate }: Props) {
     .sort((a, b) => Number(b.createdAt) - Number(a.createdAt))
     .slice(0, 3);
 
+  // Chart data
+  const projectStatusCounts: Record<string, number> = {};
+  for (const p of projects) {
+    const key = p.status || "Planning";
+    projectStatusCounts[key] = (projectStatusCounts[key] || 0) + 1;
+  }
+  const projectStatusLabels: Record<string, string> = {
+    Planning: "Planlama",
+    Active: "Aktif",
+    Completed: "Tamamlandı",
+    OnHold: "Beklemede",
+  };
+  const projectStatusColors: Record<string, string> = {
+    Planning: "#6366f1",
+    Active: "#22c55e",
+    Completed: "#94a3b8",
+    OnHold: "#f97316",
+  };
+  const pieData = Object.entries(projectStatusCounts).map(([key, value]) => ({
+    name: projectStatusLabels[key] ?? key,
+    value,
+    color: projectStatusColors[key] ?? "#6366f1",
+  }));
+
+  const failureStatusCounts = {
+    open: failures.filter((f) => f.status === "open").length,
+    "in-progress": failures.filter((f) => f.status === "in-progress").length,
+    resolved: failures.filter((f) => f.status === "resolved").length,
+  };
+  const barData = [
+    { name: "Açık", value: failureStatusCounts.open, color: "#ef4444" },
+    {
+      name: "İşlemde",
+      value: failureStatusCounts["in-progress"],
+      color: "#f97316",
+    },
+    { name: "Çözüldü", value: failureStatusCounts.resolved, color: "#22c55e" },
+  ];
+
   return (
     <div className="space-y-6">
       <div>
@@ -101,13 +152,11 @@ export default function Dashboard({ session, navigate }: Props) {
           className="text-2xl font-bold mb-1"
           style={{ fontFamily: "'Bricolage Grotesque', sans-serif" }}
         >
-          Ho\u015f Geldiniz \ud83d\udc4b
+          Hoş Geldiniz 👋
         </h2>
         <p className="text-muted-foreground text-sm">
-          \u015eirket ID:{" "}
-          <span className="font-mono text-xs">
-            {session.companyId || "\u2014"}
-          </span>
+          Şirket ID:{" "}
+          <span className="font-mono text-xs">{session.companyId || "—"}</span>
         </p>
       </div>
 
@@ -149,13 +198,116 @@ export default function Dashboard({ session, navigate }: Props) {
             })}
           </div>
 
+          {/* Charts */}
+          {projects.length > 0 || failures.length > 0 ? (
+            <div>
+              <h3
+                className="text-base font-semibold mb-3"
+                style={{ fontFamily: "'Bricolage Grotesque', sans-serif" }}
+              >
+                İstatistikler
+              </h3>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {/* Project Status Pie */}
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-medium">
+                      Proje Durumu Dağılımı
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {pieData.length === 0 ? (
+                      <p className="text-xs text-muted-foreground text-center py-8">
+                        Veri yok
+                      </p>
+                    ) : (
+                      <ResponsiveContainer width="100%" height={200}>
+                        <PieChart>
+                          <Pie
+                            data={pieData}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={50}
+                            outerRadius={80}
+                            paddingAngle={3}
+                            dataKey="value"
+                          >
+                            {pieData.map((entry) => (
+                              <Cell key={entry.name} fill={entry.color} />
+                            ))}
+                          </Pie>
+                          <Tooltip
+                            formatter={(value, name) => [value, name]}
+                            contentStyle={{ fontSize: 12 }}
+                          />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    )}
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {pieData.map((d) => (
+                        <div key={d.name} className="flex items-center gap-1.5">
+                          <div
+                            className="w-2.5 h-2.5 rounded-full"
+                            style={{ background: d.color }}
+                          />
+                          <span className="text-xs text-muted-foreground">
+                            {d.name}: {d.value}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Failure Status Bar */}
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-medium">
+                      Arıza Durumu Dağılımı
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <ResponsiveContainer width="100%" height={200}>
+                      <BarChart
+                        data={barData}
+                        margin={{ top: 5, right: 10, left: -20, bottom: 5 }}
+                      >
+                        <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                        <YAxis tick={{ fontSize: 12 }} allowDecimals={false} />
+                        <Tooltip contentStyle={{ fontSize: 12 }} />
+                        <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+                          {barData.map((entry) => (
+                            <Cell key={entry.name} fill={entry.color} />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {barData.map((d) => (
+                        <div key={d.name} className="flex items-center gap-1.5">
+                          <div
+                            className="w-2.5 h-2.5 rounded-full"
+                            style={{ background: d.color }}
+                          />
+                          <span className="text-xs text-muted-foreground">
+                            {d.name}: {d.value}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+          ) : null}
+
           {/* Quick Actions */}
           <div>
             <h3
               className="text-base font-semibold mb-3"
               style={{ fontFamily: "'Bricolage Grotesque', sans-serif" }}
             >
-              H\u0131zl\u0131 \u0130\u015flemler
+              Hızlı İşlemler
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Card
@@ -170,7 +322,7 @@ export default function Dashboard({ session, navigate }: Props) {
                   <div>
                     <p className="font-semibold text-sm">Makine Ekle</p>
                     <p className="text-muted-foreground text-xs">
-                      Yeni makine kayd\u0131 olu\u015ftur
+                      Yeni makine kaydı oluştur
                     </p>
                   </div>
                 </CardContent>
@@ -185,9 +337,9 @@ export default function Dashboard({ session, navigate }: Props) {
                     <FolderKanban className="w-5 h-5 text-violet-600 group-hover:text-white transition-colors" />
                   </div>
                   <div>
-                    <p className="font-semibold text-sm">Proje Olu\u015ftur</p>
+                    <p className="font-semibold text-sm">Proje Oluştur</p>
                     <p className="text-muted-foreground text-xs">
-                      Yeni proje ba\u015flat
+                      Yeni proje başlat
                     </p>
                   </div>
                 </CardContent>
@@ -256,7 +408,7 @@ export default function Dashboard({ session, navigate }: Props) {
                       <div>
                         <p className="font-medium text-sm">{m.name}</p>
                         <p className="text-muted-foreground text-xs">
-                          {m.machineType} \u00b7 {m.location}
+                          {m.machineType} · {m.location}
                         </p>
                       </div>
                       <span

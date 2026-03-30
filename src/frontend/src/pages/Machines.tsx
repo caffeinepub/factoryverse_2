@@ -33,6 +33,7 @@ import {
   ChevronDown,
   Cpu,
   Download,
+  FileDown,
   Loader2,
   Pencil,
   Plus,
@@ -73,6 +74,21 @@ function buildQrUrl(machineId: string): string {
   const base = `${window.location.origin}${window.location.pathname}`;
   const data = encodeURIComponent(`${base}?machineId=${machineId}`);
   return `https://api.qrserver.com/v1/create-qr-code/?size=220x220&ecc=M&data=${data}`;
+}
+
+function downloadCsv(filename: string, headers: string[], rows: string[][]) {
+  const csvEsc = (v: string) => `"${v.replace(/"/g, '""')}"`;
+  const csv = [
+    headers.map(csvEsc).join(","),
+    ...rows.map((r) => r.map(csvEsc).join(",")),
+  ].join("\n");
+  const blob = new Blob([`\uFEFF${csv}`], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 export default function Machines({ session }: Props) {
@@ -261,6 +277,20 @@ export default function Machines({ session }: Props) {
     }
   };
 
+  const handleExportCsv = () => {
+    downloadCsv(
+      "makineler.csv",
+      ["Ad", "Tip", "Seri No", "Konum", "Durum"],
+      machines.map((m) => [
+        m.name,
+        m.machineType,
+        m.serialNumber || "",
+        m.location || "",
+        statusConfig[m.status]?.label ?? m.status,
+      ]),
+    );
+  };
+
   const StatusBadge = ({ status }: { status: string }) => {
     const cfg = statusConfig[status] ?? {
       label: status,
@@ -289,111 +319,123 @@ export default function Machines({ session }: Props) {
             {machines.length} makine kayıtlı
           </p>
         </div>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button data-ocid="machines.add.open_modal_button">
-              <Plus className="w-4 h-4 mr-2" /> Makine Ekle
-            </Button>
-          </DialogTrigger>
-          <DialogContent aria-describedby="add-machine-desc">
-            <DialogHeader>
-              <DialogTitle
-                style={{ fontFamily: "'Bricolage Grotesque', sans-serif" }}
-              >
-                Yeni Makine Ekle
-              </DialogTitle>
-              <DialogDescription id="add-machine-desc">
-                Makine bilgilerini doldurun ve kaydedin.
-              </DialogDescription>
-            </DialogHeader>
-            <form
-              onSubmit={handleAdd}
-              className="space-y-3"
-              data-ocid="machines.add.dialog"
+        <div className="flex items-center gap-2">
+          {machines.length > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExportCsv}
+              data-ocid="machines.csv.button"
             >
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label>Ad *</Label>
-                  <Input
-                    value={form.name}
-                    onChange={(e) =>
-                      setForm((f) => ({ ...f, name: e.target.value }))
-                    }
-                    placeholder="CNC Torna"
-                    data-ocid="machines.name.input"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Tip *</Label>
-                  <Input
-                    value={form.machineType}
-                    onChange={(e) =>
-                      setForm((f) => ({ ...f, machineType: e.target.value }))
-                    }
-                    placeholder="CNC"
-                    data-ocid="machines.type.input"
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label>Seri No</Label>
-                  <Input
-                    value={form.serialNumber}
-                    onChange={(e) =>
-                      setForm((f) => ({ ...f, serialNumber: e.target.value }))
-                    }
-                    placeholder="SN-001"
-                    data-ocid="machines.serial.input"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Konum</Label>
-                  <Input
-                    value={form.location}
-                    onChange={(e) =>
-                      setForm((f) => ({ ...f, location: e.target.value }))
-                    }
-                    placeholder="A Hattı"
-                    data-ocid="machines.location.input"
-                  />
-                </div>
-              </div>
-              <div className="space-y-1.5">
-                <Label>Notlar</Label>
-                <Textarea
-                  value={form.notes}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, notes: e.target.value }))
-                  }
-                  rows={2}
-                  placeholder="Ek notlar..."
-                  data-ocid="machines.notes.textarea"
-                />
-              </div>
-              <DialogFooter>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setDialogOpen(false)}
-                  data-ocid="machines.add.cancel_button"
+              <FileDown className="w-4 h-4 mr-2" /> CSV İndir
+            </Button>
+          )}
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <DialogTrigger asChild>
+              <Button data-ocid="machines.add.open_modal_button">
+                <Plus className="w-4 h-4 mr-2" /> Makine Ekle
+              </Button>
+            </DialogTrigger>
+            <DialogContent aria-describedby="add-machine-desc">
+              <DialogHeader>
+                <DialogTitle
+                  style={{ fontFamily: "'Bricolage Grotesque', sans-serif" }}
                 >
-                  İptal
-                </Button>
-                <Button
-                  type="submit"
-                  disabled={submitting}
-                  data-ocid="machines.add.submit_button"
-                >
-                  {submitting ? (
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  ) : null}
-                  {submitting ? "Kaydediliyor..." : "Kaydet"}
-                </Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
+                  Yeni Makine Ekle
+                </DialogTitle>
+                <DialogDescription id="add-machine-desc">
+                  Makine bilgilerini doldurun ve kaydedin.
+                </DialogDescription>
+              </DialogHeader>
+              <form
+                onSubmit={handleAdd}
+                className="space-y-3"
+                data-ocid="machines.add.dialog"
+              >
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label>Ad *</Label>
+                    <Input
+                      value={form.name}
+                      onChange={(e) =>
+                        setForm((f) => ({ ...f, name: e.target.value }))
+                      }
+                      placeholder="CNC Torna"
+                      data-ocid="machines.name.input"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Tip *</Label>
+                    <Input
+                      value={form.machineType}
+                      onChange={(e) =>
+                        setForm((f) => ({ ...f, machineType: e.target.value }))
+                      }
+                      placeholder="CNC"
+                      data-ocid="machines.type.input"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label>Seri No</Label>
+                    <Input
+                      value={form.serialNumber}
+                      onChange={(e) =>
+                        setForm((f) => ({ ...f, serialNumber: e.target.value }))
+                      }
+                      placeholder="SN-001"
+                      data-ocid="machines.serial.input"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Konum</Label>
+                    <Input
+                      value={form.location}
+                      onChange={(e) =>
+                        setForm((f) => ({ ...f, location: e.target.value }))
+                      }
+                      placeholder="A Hattı"
+                      data-ocid="machines.location.input"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Notlar</Label>
+                  <Textarea
+                    value={form.notes}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, notes: e.target.value }))
+                    }
+                    rows={2}
+                    placeholder="Ek notlar..."
+                    data-ocid="machines.notes.textarea"
+                  />
+                </div>
+                <DialogFooter>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setDialogOpen(false)}
+                    data-ocid="machines.add.cancel_button"
+                  >
+                    İptal
+                  </Button>
+                  <Button
+                    type="submit"
+                    disabled={submitting}
+                    data-ocid="machines.add.submit_button"
+                  >
+                    {submitting ? (
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    ) : null}
+                    {submitting ? "Kaydediliyor..." : "Kaydet"}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       {/* Edit Machine Dialog */}

@@ -229,6 +229,15 @@ export interface backendInterface {
     deleteMaintenancePlan(planId: string): Promise<void>;
     updateDocument(documentId: string, title: string, fileName: string, category: string): Promise<void>;
     updateProjectCost(costId: string, title: string, category: string, amount: number, currency: string, description: string): Promise<void>;
+    // Sürüm 24
+    updateProject(projectId: string, name: string, description: string, deadline: string): Promise<void>;
+    deleteProject(projectId: string): Promise<void>;
+    linkMaintenancePlanToProject(planId: string, projectId: string): Promise<void>;
+    getMaintenancePlanProject(planId: string): Promise<string>;
+    listMaintenancePlanProjects(companyId: string): Promise<Array<[string, string]>>;
+    updateFailure(failureId: string, title: string, description: string, severity: string): Promise<void>;
+    deleteFailure(failureId: string): Promise<void>;
+
 }
 
 // Sürüm 22 additions

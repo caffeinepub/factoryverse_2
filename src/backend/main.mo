@@ -1228,4 +1228,103 @@ actor {
       };
     };
   };
+
+  // ===== Sürüm 24 Additions =====
+
+  // Separate store for maintenance plan → project linking
+  let maintenancePlanProjectStore = Map.empty<MaintenancePlanId, ProjectId>();
+
+  // Update project details
+  public shared ({ caller }) func updateProject(projectId : Text, name : Text, description : Text, deadline : Text) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized");
+    };
+    switch (projects.get(projectId)) {
+      case (null) { Runtime.trap("Project not found.") };
+      case (?p) {
+        verifyCompanyAccess(caller, p.companyId);
+        let updated : Project = { p with name; description; deadline };
+        projects.add(projectId, updated);
+      };
+    };
+  };
+
+  // Delete project
+  public shared ({ caller }) func deleteProject(projectId : Text) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized");
+    };
+    switch (projects.get(projectId)) {
+      case (null) { Runtime.trap("Project not found.") };
+      case (?p) {
+        verifyCompanyAccess(caller, p.companyId);
+        projects.remove(projectId);
+      };
+    };
+  };
+
+  // Link maintenance plan to project
+  public shared ({ caller }) func linkMaintenancePlanToProject(planId : Text, projectId : Text) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized");
+    };
+    switch (maintenancePlanStore.get(planId)) {
+      case (null) { Runtime.trap("Maintenance plan not found.") };
+      case (?plan) {
+        verifyCompanyAccess(caller, plan.companyId);
+        maintenancePlanProjectStore.add(planId, projectId);
+      };
+    };
+  };
+
+  // Get project linked to maintenance plan
+  public query ({ caller }) func getMaintenancePlanProject(planId : Text) : async Text {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized");
+    };
+    switch (maintenancePlanProjectStore.get(planId)) {
+      case (null) { "" };
+      case (?pid) { pid };
+    };
+  };
+
+  // Update failure record
+  public shared ({ caller }) func updateFailure(failureId : Text, title : Text, description : Text, severity : Text) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized");
+    };
+    switch (failureStore.get(failureId)) {
+      case (null) { Runtime.trap("Failure not found.") };
+      case (?f) {
+        verifyCompanyAccess(caller, f.companyId);
+        let updated : Failure = { f with title; description; severity };
+        failureStore.add(failureId, updated);
+      };
+    };
+  };
+
+  // Delete failure record
+  public shared ({ caller }) func deleteFailure(failureId : Text) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized");
+    };
+    switch (failureStore.get(failureId)) {
+      case (null) { Runtime.trap("Failure not found.") };
+      case (?f) {
+        verifyCompanyAccess(caller, f.companyId);
+        failureStore.remove(failureId);
+      };
+    };
+  };
+
+  // Update project cost (already in Sürüm 23 backend.d.ts but verify in main.mo)
+  // List maintenance plans with project info (returns planId and projectId pairs)
+  public query ({ caller }) func listMaintenancePlanProjects(companyId : Text) : async [(Text, Text)] {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized");
+    };
+    verifyCompanyAccess(caller, companyId);
+    maintenancePlanProjectStore.entries().toArray();
+  };
+
 };

@@ -15,7 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useActor } from "@/hooks/useActor";
-import { FolderKanban, Loader2, Plus } from "lucide-react";
+import { FolderKanban, Loader2, Pencil, Plus, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -45,12 +45,29 @@ function StatusBadge({
 
 export default function Projects({ session, navigateToDetail }: Props) {
   const { actor } = useActor();
+  const api = actor as any;
+  const isAdmin = session.role === "companyAdmin" || session.role === "admin";
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   const [form, setForm] = useState({ name: "", description: "", deadline: "" });
+
+  // Edit state
+  const [editOpen, setEditOpen] = useState(false);
+  const [editTarget, setEditTarget] = useState<Project | null>(null);
+  const [editForm, setEditForm] = useState({
+    name: "",
+    description: "",
+    deadline: "",
+  });
+  const [editSaving, setEditSaving] = useState(false);
+
+  // Delete state
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<Project | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const loadProjects = async () => {
     if (!session.companyId || !actor) {
@@ -98,6 +115,64 @@ export default function Projects({ session, navigateToDetail }: Props) {
       toast.error("Proje oluşturulurken hata oluştu.");
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const openEditDialog = (p: Project, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditTarget(p);
+    setEditForm({
+      name: p.name,
+      description: p.description ?? "",
+      deadline: p.deadline ?? "",
+    });
+    setEditOpen(true);
+  };
+
+  const handleEdit = async () => {
+    if (!editTarget || !api) return;
+    if (!editForm.name.trim()) {
+      toast.error("Proje adı zorunludur.");
+      return;
+    }
+    setEditSaving(true);
+    try {
+      await api.updateProject(
+        editTarget.id,
+        editForm.name,
+        editForm.description,
+        editForm.deadline,
+      );
+      toast.success("Proje güncellendi.");
+      setEditOpen(false);
+      setEditTarget(null);
+      await loadProjects();
+    } catch {
+      toast.error("Güncelleme sırasında hata oluştu.");
+    } finally {
+      setEditSaving(false);
+    }
+  };
+
+  const openDeleteDialog = (p: Project, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setDeleteTarget(p);
+    setDeleteOpen(true);
+  };
+
+  const handleDelete = async () => {
+    if (!deleteTarget || !api) return;
+    setDeleting(true);
+    try {
+      await api.deleteProject(deleteTarget.id);
+      toast.success("Proje silindi.");
+      setDeleteOpen(false);
+      setDeleteTarget(null);
+      setProjects((prev) => prev.filter((p) => p.id !== deleteTarget.id));
+    } catch {
+      toast.error("Silme sırasında hata oluştu.");
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -218,12 +293,38 @@ export default function Projects({ session, navigateToDetail }: Props) {
           {projects.map((p, idx) => (
             <Card
               key={p.id}
-              className="hover:shadow-md hover:border-primary/40 transition-all cursor-pointer"
+              className="hover:shadow-md hover:border-primary/40 transition-all cursor-pointer relative"
               onClick={() => navigateToDetail(p.id)}
               data-ocid={`projects.item.${idx + 1}`}
             >
+              {isAdmin && (
+                <div
+                  className="absolute top-3 right-3 flex gap-1 z-10"
+                  onClick={(e) => e.stopPropagation()}
+                  onKeyDown={(e) => e.stopPropagation()}
+                >
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 text-muted-foreground hover:text-primary"
+                    onClick={(e) => openEditDialog(p, e)}
+                    data-ocid={`projects.edit_button.${idx + 1}`}
+                  >
+                    <Pencil className="w-3.5 h-3.5" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 text-red-400 hover:text-red-600 hover:bg-red-50"
+                    onClick={(e) => openDeleteDialog(p, e)}
+                    data-ocid={`projects.delete_button.${idx + 1}`}
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </Button>
+                </div>
+              )}
               <CardHeader className="pb-2">
-                <div className="flex items-start justify-between gap-2">
+                <div className="flex items-start justify-between gap-2 pr-14">
                   <CardTitle
                     className="text-base leading-snug"
                     style={{ fontFamily: "'Bricolage Grotesque', sans-serif" }}
@@ -248,6 +349,108 @@ export default function Projects({ session, navigateToDetail }: Props) {
           ))}
         </div>
       )}
+
+      {/* Edit Dialog */}
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent aria-describedby="edit-project-desc">
+          <DialogHeader>
+            <DialogTitle
+              style={{ fontFamily: "'Bricolage Grotesque', sans-serif" }}
+            >
+              Projeyi Düzenle
+            </DialogTitle>
+            <DialogDescription id="edit-project-desc">
+              Proje bilgilerini güncelleyin.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3" data-ocid="projects.edit.dialog">
+            <div className="space-y-1.5">
+              <Label>Proje Adı *</Label>
+              <Input
+                value={editForm.name}
+                onChange={(e) =>
+                  setEditForm((f) => ({ ...f, name: e.target.value }))
+                }
+                data-ocid="projects.edit.name.input"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Açıklama</Label>
+              <Textarea
+                value={editForm.description}
+                onChange={(e) =>
+                  setEditForm((f) => ({ ...f, description: e.target.value }))
+                }
+                rows={3}
+                data-ocid="projects.edit.description.textarea"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Son Tarih</Label>
+              <Input
+                type="date"
+                value={editForm.deadline}
+                onChange={(e) =>
+                  setEditForm((f) => ({ ...f, deadline: e.target.value }))
+                }
+                data-ocid="projects.edit.deadline.input"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setEditOpen(false)}
+              data-ocid="projects.edit.cancel_button"
+            >
+              İptal
+            </Button>
+            <Button
+              onClick={handleEdit}
+              disabled={editSaving}
+              data-ocid="projects.edit.save_button"
+            >
+              {editSaving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              {editSaving ? "Kaydediliyor..." : "Güncelle"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirm Dialog */}
+      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <DialogContent aria-describedby="delete-project-desc">
+          <DialogHeader>
+            <DialogTitle
+              style={{ fontFamily: "'Bricolage Grotesque', sans-serif" }}
+            >
+              Projeyi Sil
+            </DialogTitle>
+            <DialogDescription id="delete-project-desc">
+              "{deleteTarget?.name}" projesini silmek istediğinizden emin
+              misiniz? Bu işlem geri alınamaz.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setDeleteOpen(false)}
+              data-ocid="projects.delete.cancel_button"
+            >
+              İptal
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDelete}
+              disabled={deleting}
+              data-ocid="projects.delete.confirm_button"
+            >
+              {deleting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              {deleting ? "Siliniyor..." : "Sil"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

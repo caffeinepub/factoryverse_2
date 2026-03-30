@@ -39,9 +39,12 @@ import { useActor } from "@/hooks/useActor";
 import {
   CheckCircle2,
   ChevronDown,
+  FileDown,
   Link2,
   Loader2,
+  Pencil,
   Plus,
+  Trash2,
   Wrench,
 } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -98,6 +101,7 @@ const statusOptions = Object.entries(statusConfig).map(
 export default function Maintenance({ session }: Props) {
   const { actor } = useActor();
   const api = actor as any;
+  const isAdmin = session.role === "companyAdmin" || session.role === "admin";
   const [failures, setFailures] = useState<Failure[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
@@ -124,6 +128,24 @@ export default function Maintenance({ session }: Props) {
   const [linkedFailures, setLinkedFailures] = useState<Record<string, string>>(
     {},
   );
+
+  // Edit failure state
+  const [editFailureOpen, setEditFailureOpen] = useState(false);
+  const [editFailureTarget, setEditFailureTarget] = useState<Failure | null>(
+    null,
+  );
+  const [editFailureForm, setEditFailureForm] = useState({
+    title: "",
+    description: "",
+    severity: "medium",
+  });
+  const [editFailureSaving, setEditFailureSaving] = useState(false);
+
+  // Delete failure state
+  const [deleteFailureOpen, setDeleteFailureOpen] = useState(false);
+  const [deleteFailureTarget, setDeleteFailureTarget] =
+    useState<Failure | null>(null);
+  const [deleteFailureSubmitting, setDeleteFailureSubmitting] = useState(false);
 
   const [form, setForm] = useState({
     title: "",
@@ -274,6 +296,92 @@ export default function Maintenance({ session }: Props) {
     }
   };
 
+  const openEditFailure = (f: Failure) => {
+    setEditFailureTarget(f);
+    setEditFailureForm({
+      title: f.title,
+      description: f.description ?? "",
+      severity: f.severity,
+    });
+    setEditFailureOpen(true);
+  };
+
+  const handleEditFailureSave = async () => {
+    if (!editFailureTarget || !api) return;
+    setEditFailureSaving(true);
+    try {
+      await api.updateFailure(
+        editFailureTarget.id,
+        editFailureForm.title,
+        editFailureForm.description,
+        editFailureForm.severity,
+      );
+      toast.success("Arıza güncellendi.");
+      setFailures((prev) =>
+        prev.map((f) =>
+          f.id === editFailureTarget.id ? { ...f, ...editFailureForm } : f,
+        ),
+      );
+      setEditFailureOpen(false);
+    } catch {
+      toast.error("Güncelleme sırasında hata oluştu.");
+    } finally {
+      setEditFailureSaving(false);
+    }
+  };
+
+  const handleDeleteFailure = async () => {
+    if (!deleteFailureTarget || !api) return;
+    setDeleteFailureSubmitting(true);
+    try {
+      await api.deleteFailure(deleteFailureTarget.id);
+      toast.success("Arıza silindi.");
+      setFailures((prev) =>
+        prev.filter((f) => f.id !== deleteFailureTarget.id),
+      );
+      setDeleteFailureOpen(false);
+    } catch {
+      toast.error("Silme sırasında hata oluştu.");
+    } finally {
+      setDeleteFailureSubmitting(false);
+    }
+  };
+
+  const handleExportCsv = () => {
+    const sevLabels: Record<string, string> = {
+      low: "Düşük",
+      medium: "Orta",
+      high: "Yüksek",
+      critical: "Kritik",
+    };
+    const stLabels: Record<string, string> = {
+      open: "Açık",
+      "in-progress": "İşlemde",
+      resolved: "Çözüldü",
+    };
+    const rows = failures.map((f) =>
+      [
+        f.title,
+        f.machineId || "",
+        sevLabels[f.severity] || f.severity,
+        stLabels[f.status] || f.status,
+        new Date(Number(f.reportedAt) / 1_000_000).toLocaleDateString("tr-TR"),
+      ]
+        .map((v) => `"${String(v).replace(/"/g, '""')}"`)
+        .join(","),
+    );
+    const csv = ["Başlık,Makine,Önem,Durum,Tarih", ...rows].join("\n");
+    const blob = new Blob([`\uFEFF${csv}`], {
+      type: "text/csv;charset=utf-8;",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "arizalar.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const formatDate = (ts: bigint) => {
     try {
       return new Date(Number(ts) / 1_000_000).toLocaleDateString("tr-TR");
@@ -310,141 +418,153 @@ export default function Maintenance({ session }: Props) {
             {failures.length} kayıt
           </p>
         </div>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button data-ocid="maintenance.add.open_modal_button">
-              <Plus className="w-4 h-4 mr-2" /> Arıza Bildir
-            </Button>
-          </DialogTrigger>
-          <DialogContent aria-describedby="add-failure-desc">
-            <DialogHeader>
-              <DialogTitle
-                style={{ fontFamily: "'Bricolage Grotesque', sans-serif" }}
-              >
-                Arıza Bildir
-              </DialogTitle>
-              <DialogDescription id="add-failure-desc">
-                Arıza bilgilerini doldurun ve kaydedin.
-              </DialogDescription>
-            </DialogHeader>
-            <form
-              onSubmit={handleAdd}
-              className="space-y-3"
-              data-ocid="maintenance.add.dialog"
+        <div className="flex items-center gap-2">
+          {failures.length > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExportCsv}
+              data-ocid="maintenance.csv.button"
             >
-              <div className="space-y-1.5">
-                <Label>Başlık *</Label>
-                <Input
-                  value={form.title}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, title: e.target.value }))
-                  }
-                  placeholder="Pompa arızası"
-                  data-ocid="maintenance.title.input"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Makine ID (opsiyonel)</Label>
-                <Input
-                  value={form.machineId}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, machineId: e.target.value }))
-                  }
-                  placeholder="Makine kodu veya adı"
-                  data-ocid="maintenance.machine.input"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label>İlgili Proje (opsiyonel)</Label>
-                <Select
-                  value={form.projectId}
-                  onValueChange={(v) =>
-                    setForm((f) => ({
-                      ...f,
-                      projectId: v === "__none" ? "" : v,
-                    }))
-                  }
+              <FileDown className="w-4 h-4 mr-2" /> CSV İndir
+            </Button>
+          )}
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <DialogTrigger asChild>
+              <Button data-ocid="maintenance.add.open_modal_button">
+                <Plus className="w-4 h-4 mr-2" /> Arıza Bildir
+              </Button>
+            </DialogTrigger>
+            <DialogContent aria-describedby="add-failure-desc">
+              <DialogHeader>
+                <DialogTitle
+                  style={{ fontFamily: "'Bricolage Grotesque', sans-serif" }}
                 >
-                  <SelectTrigger data-ocid="maintenance.project.select">
-                    <SelectValue placeholder="Proje seçin (opsiyonel)" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__none">— Proje bağlama —</SelectItem>
-                    {projects.map((p) => (
-                      <SelectItem key={p.id} value={p.id}>
-                        {p.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label>Açıklama</Label>
-                <Textarea
-                  value={form.description}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, description: e.target.value }))
-                  }
-                  rows={3}
-                  placeholder="Arıza detayları..."
-                  data-ocid="maintenance.description.textarea"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
+                  Arıza Bildir
+                </DialogTitle>
+                <DialogDescription id="add-failure-desc">
+                  Arıza bilgilerini doldurun ve kaydedin.
+                </DialogDescription>
+              </DialogHeader>
+              <form
+                onSubmit={handleAdd}
+                className="space-y-3"
+                data-ocid="maintenance.add.dialog"
+              >
                 <div className="space-y-1.5">
-                  <Label>Önem Derecesi</Label>
+                  <Label>Başlık *</Label>
+                  <Input
+                    value={form.title}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, title: e.target.value }))
+                    }
+                    placeholder="Pompa arızası"
+                    data-ocid="maintenance.title.input"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Makine ID (opsiyonel)</Label>
+                  <Input
+                    value={form.machineId}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, machineId: e.target.value }))
+                    }
+                    placeholder="Makine kodu veya adı"
+                    data-ocid="maintenance.machine.input"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>İlgili Proje (opsiyonel)</Label>
                   <Select
-                    value={form.severity}
+                    value={form.projectId}
                     onValueChange={(v) =>
-                      setForm((f) => ({ ...f, severity: v }))
+                      setForm((f) => ({
+                        ...f,
+                        projectId: v === "__none" ? "" : v,
+                      }))
                     }
                   >
-                    <SelectTrigger data-ocid="maintenance.severity.select">
-                      <SelectValue />
+                    <SelectTrigger data-ocid="maintenance.project.select">
+                      <SelectValue placeholder="Proje seçin (opsiyonel)" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="low">Düşük</SelectItem>
-                      <SelectItem value="medium">Orta</SelectItem>
-                      <SelectItem value="high">Yüksek</SelectItem>
-                      <SelectItem value="critical">Kritik</SelectItem>
+                      <SelectItem value="__none">— Proje bağlama —</SelectItem>
+                      {projects.map((p) => (
+                        <SelectItem key={p.id} value={p.id}>
+                          {p.name}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Bildiren</Label>
-                  <Input
-                    value={form.reportedBy}
+                  <Label>Açıklama</Label>
+                  <Textarea
+                    value={form.description}
                     onChange={(e) =>
-                      setForm((f) => ({ ...f, reportedBy: e.target.value }))
+                      setForm((f) => ({ ...f, description: e.target.value }))
                     }
-                    placeholder="Ad Soyad"
-                    data-ocid="maintenance.reporter.input"
+                    rows={3}
+                    placeholder="Arıza detayları..."
+                    data-ocid="maintenance.description.textarea"
                   />
                 </div>
-              </div>
-              <DialogFooter>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setDialogOpen(false)}
-                  data-ocid="maintenance.add.cancel_button"
-                >
-                  İptal
-                </Button>
-                <Button
-                  type="submit"
-                  disabled={submitting}
-                  data-ocid="maintenance.add.submit_button"
-                >
-                  {submitting ? (
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  ) : null}
-                  {submitting ? "Kaydediliyor..." : "Kaydet"}
-                </Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label>Önem Derecesi</Label>
+                    <Select
+                      value={form.severity}
+                      onValueChange={(v) =>
+                        setForm((f) => ({ ...f, severity: v }))
+                      }
+                    >
+                      <SelectTrigger data-ocid="maintenance.severity.select">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="low">Düşük</SelectItem>
+                        <SelectItem value="medium">Orta</SelectItem>
+                        <SelectItem value="high">Yüksek</SelectItem>
+                        <SelectItem value="critical">Kritik</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Bildiren</Label>
+                    <Input
+                      value={form.reportedBy}
+                      onChange={(e) =>
+                        setForm((f) => ({ ...f, reportedBy: e.target.value }))
+                      }
+                      placeholder="Ad Soyad"
+                      data-ocid="maintenance.reporter.input"
+                    />
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setDialogOpen(false)}
+                    data-ocid="maintenance.add.cancel_button"
+                  >
+                    İptal
+                  </Button>
+                  <Button
+                    type="submit"
+                    disabled={submitting}
+                    data-ocid="maintenance.add.submit_button"
+                  >
+                    {submitting ? (
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    ) : null}
+                    {submitting ? "Kaydediliyor..." : "Kaydet"}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       {/* Resolve Dialog */}
@@ -708,6 +828,33 @@ export default function Maintenance({ session }: Props) {
                         >
                           <Link2 className="w-3.5 h-3.5" />
                         </Button>
+                        {isAdmin && (
+                          <>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="text-xs px-2"
+                              onClick={() => openEditFailure(f)}
+                              data-ocid={`maintenance.edit_button.${idx + 1}`}
+                              title="Düzenle"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="text-xs px-2 text-red-600 hover:text-red-700 hover:bg-red-50"
+                              onClick={() => {
+                                setDeleteFailureTarget(f);
+                                setDeleteFailureOpen(true);
+                              }}
+                              data-ocid={`maintenance.delete_button.${idx + 1}`}
+                              title="Sil"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
+                          </>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>
@@ -717,6 +864,123 @@ export default function Maintenance({ session }: Props) {
           </Table>
         </div>
       )}
+
+      {/* Edit Failure Dialog */}
+      <Dialog open={editFailureOpen} onOpenChange={setEditFailureOpen}>
+        <DialogContent aria-describedby="edit-failure-desc">
+          <DialogHeader>
+            <DialogTitle
+              style={{ fontFamily: "'Bricolage Grotesque', sans-serif" }}
+            >
+              Arızayı Düzenle
+            </DialogTitle>
+            <DialogDescription id="edit-failure-desc">
+              Arıza bilgilerini güncelleyin.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3" data-ocid="maintenance.edit.dialog">
+            <div className="space-y-1.5">
+              <Label>Başlık *</Label>
+              <Input
+                value={editFailureForm.title}
+                onChange={(e) =>
+                  setEditFailureForm((f) => ({ ...f, title: e.target.value }))
+                }
+                data-ocid="maintenance.edit.title.input"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Açıklama</Label>
+              <Textarea
+                value={editFailureForm.description}
+                onChange={(e) =>
+                  setEditFailureForm((f) => ({
+                    ...f,
+                    description: e.target.value,
+                  }))
+                }
+                rows={3}
+                data-ocid="maintenance.edit.description.textarea"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Önem Derecesi</Label>
+              <Select
+                value={editFailureForm.severity}
+                onValueChange={(v) =>
+                  setEditFailureForm((f) => ({ ...f, severity: v }))
+                }
+              >
+                <SelectTrigger data-ocid="maintenance.edit.severity.select">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="low">Düşük</SelectItem>
+                  <SelectItem value="medium">Orta</SelectItem>
+                  <SelectItem value="high">Yüksek</SelectItem>
+                  <SelectItem value="critical">Kritik</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setEditFailureOpen(false)}
+              data-ocid="maintenance.edit.cancel_button"
+            >
+              İptal
+            </Button>
+            <Button
+              onClick={handleEditFailureSave}
+              disabled={editFailureSaving}
+              data-ocid="maintenance.edit.save_button"
+            >
+              {editFailureSaving && (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              )}
+              {editFailureSaving ? "Kaydediliyor..." : "Güncelle"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Failure Dialog */}
+      <Dialog open={deleteFailureOpen} onOpenChange={setDeleteFailureOpen}>
+        <DialogContent aria-describedby="delete-failure-desc">
+          <DialogHeader>
+            <DialogTitle
+              style={{ fontFamily: "'Bricolage Grotesque', sans-serif" }}
+            >
+              Arızayı Sil
+            </DialogTitle>
+            <DialogDescription id="delete-failure-desc">
+              "{deleteFailureTarget?.title}" kaydını silmek istediğinizden emin
+              misiniz?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setDeleteFailureOpen(false)}
+              data-ocid="maintenance.delete.cancel_button"
+            >
+              İptal
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteFailure}
+              disabled={deleteFailureSubmitting}
+              data-ocid="maintenance.delete.confirm_button"
+            >
+              {deleteFailureSubmitting && (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              )}
+              {deleteFailureSubmitting ? "Siliniyor..." : "Sil"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
