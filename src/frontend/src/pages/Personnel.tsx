@@ -35,7 +35,15 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useActor } from "@/hooks/useActor";
-import { FileDown, Info, Loader2, Pencil, Trash2, Users } from "lucide-react";
+import {
+  FileDown,
+  Info,
+  KeyRound,
+  Loader2,
+  Pencil,
+  Trash2,
+  Users,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -92,6 +100,12 @@ export default function PersonnelPage({ session }: Props) {
   const [deleteTarget, setDeleteTarget] = useState<Personnel | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
+
+  // Reset code dialog
+  const [resetCodeOpen, setResetCodeOpen] = useState(false);
+  const [resetTarget, setResetTarget] = useState<Personnel | null>(null);
+  const [newCode, setNewCode] = useState("");
+  const [resetSubmitting, setResetSubmitting] = useState(false);
 
   const loadPersonnel = async () => {
     if (!session.companyId || !api) {
@@ -181,6 +195,24 @@ export default function PersonnelPage({ session }: Props) {
     }
   };
 
+  const handleResetCode = async (p: Personnel) => {
+    setResetTarget(p);
+    setNewCode("");
+    setResetCodeOpen(true);
+    setResetSubmitting(true);
+    try {
+      const code: string = await api.resetPersonnelLoginCode(p.id);
+      setNewCode(code);
+      toast.success("Giriş kodu sıfırlandı.");
+      await loadPersonnel();
+    } catch {
+      toast.error("Kod sıfırlanırken hata oluştu.");
+      setResetCodeOpen(false);
+    } finally {
+      setResetSubmitting(false);
+    }
+  };
+
   const handleExportCsv = () => {
     downloadCsv(
       "personel.csv",
@@ -260,7 +292,7 @@ export default function PersonnelPage({ session }: Props) {
                       Davet Kodu
                     </TableHead>
                     {isAdmin && (
-                      <TableHead className="w-24">İşlemler</TableHead>
+                      <TableHead className="w-36">İşlemler</TableHead>
                     )}
                   </TableRow>
                 </TableHeader>
@@ -299,6 +331,16 @@ export default function PersonnelPage({ session }: Props) {
                             <Button
                               variant="outline"
                               size="sm"
+                              className="px-2"
+                              onClick={() => handleResetCode(p)}
+                              title="Kodu Sıfırla"
+                              data-ocid={`personnel.reset_button.${idx + 1}`}
+                            >
+                              <KeyRound className="w-3.5 h-3.5" />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
                               className="px-2 text-red-600 hover:text-red-700 hover:bg-red-50"
                               onClick={() => {
                                 setDeleteTarget(p);
@@ -319,6 +361,53 @@ export default function PersonnelPage({ session }: Props) {
           )}
         </CardContent>
       </Card>
+
+      {/* Reset Code Dialog */}
+      <Dialog open={resetCodeOpen} onOpenChange={setResetCodeOpen}>
+        <DialogContent
+          aria-describedby="reset-code-desc"
+          data-ocid="personnel.reset.dialog"
+        >
+          <DialogHeader>
+            <DialogTitle
+              style={{ fontFamily: "'Bricolage Grotesque', sans-serif" }}
+            >
+              Yeni Giriş Kodu
+            </DialogTitle>
+            <DialogDescription id="reset-code-desc">
+              {resetTarget?.name} için yeni giriş kodu oluşturuldu.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col items-center gap-4 py-4">
+            {resetSubmitting ? (
+              <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+            ) : (
+              <>
+                <div className="rounded-xl bg-muted px-8 py-4 text-center">
+                  <p className="text-xs text-muted-foreground mb-1">Yeni Kod</p>
+                  <p
+                    className="text-3xl font-bold tracking-widest font-mono select-all"
+                    style={{ fontFamily: "'JetBrains Mono', monospace" }}
+                  >
+                    {newCode}
+                  </p>
+                </div>
+                <p className="text-xs text-muted-foreground text-center">
+                  Bu kodu personele iletin. Eski kod artık geçersizdir.
+                </p>
+              </>
+            )}
+          </div>
+          <DialogFooter>
+            <Button
+              onClick={() => setResetCodeOpen(false)}
+              data-ocid="personnel.reset.close_button"
+            >
+              Tamam
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Edit Dialog */}
       <Dialog open={editOpen} onOpenChange={setEditOpen}>

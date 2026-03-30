@@ -2,15 +2,19 @@ import type { Session } from "@/App";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { useActor } from "@/hooks/useActor";
 import {
   Building2,
   Check,
+  CheckSquare,
   Copy,
   Cpu,
   Folder,
   Lock,
+  Pencil,
   Shield,
   User,
   Users,
@@ -47,6 +51,13 @@ export default function Settings({ session }: Props) {
   const [copied, setCopied] = useState(false);
   const [machineCount, setMachineCount] = useState<number | null>(null);
   const [personnelCount, setPersonnelCount] = useState<number | null>(null);
+  const [projectCount, setProjectCount] = useState<number | null>(null);
+  const [taskCount, setTaskCount] = useState<number | null>(null);
+
+  // Profile edit
+  const [profileName, setProfileName] = useState("");
+  const [profileEmail, setProfileEmail] = useState("");
+  const [profileSaving, setProfileSaving] = useState(false);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: actor stabilizes after init
   useEffect(() => {
@@ -54,13 +65,32 @@ export default function Settings({ session }: Props) {
     Promise.all([
       actor.listMachines(session.companyId),
       api.listCompanyPersonnel(session.companyId),
+      api.listProjects(session.companyId),
+      api.listAllTasks(session.companyId),
     ])
-      .then(([m, p]) => {
+      .then(([m, p, proj, tasks]) => {
         setMachineCount((m as any[]).length);
         setPersonnelCount((p as any[]).length);
+        setProjectCount((proj as any[]).length);
+        setTaskCount((tasks as any[]).length);
       })
       .catch(() => {});
   }, [session.companyId, actor]);
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: actor stabilizes after init
+  useEffect(() => {
+    if (!actor) return;
+    api
+      .getCallerUserProfile()
+      .then((res: any) => {
+        const profile = Array.isArray(res) && res.length > 0 ? res[0] : null;
+        if (profile) {
+          setProfileName(profile.name ?? "");
+          setProfileEmail(profile.email ?? "");
+        }
+      })
+      .catch(() => {});
+  }, [actor]);
 
   const handleCopyCode = () => {
     if (!session.personnelId) return;
@@ -69,6 +99,24 @@ export default function Settings({ session }: Props) {
       toast.success("Giriş kodu kopyalandı!");
       setTimeout(() => setCopied(false), 2000);
     });
+  };
+
+  const handleSaveProfile = async () => {
+    if (!api) return;
+    setProfileSaving(true);
+    try {
+      await api.saveCallerUserProfile({
+        name: profileName,
+        email: profileEmail,
+        personnelId: session.personnelId ? [session.personnelId] : [],
+        companyId: session.companyId ? [session.companyId] : [],
+      });
+      toast.success("Profil kaydedildi!");
+    } catch {
+      toast.error("Profil kaydedilemedi.");
+    } finally {
+      setProfileSaving(false);
+    }
   };
 
   return (
@@ -119,6 +167,30 @@ export default function Settings({ session }: Props) {
                 <p className="text-xs text-violet-600">Toplam Personel</p>
               </div>
             </div>
+            <div className="rounded-lg bg-emerald-50 border border-emerald-100 p-4 flex items-center gap-3">
+              <Folder className="w-5 h-5 text-emerald-600" />
+              <div>
+                <p
+                  className="text-2xl font-bold text-emerald-700"
+                  style={{ fontFamily: "'Bricolage Grotesque', sans-serif" }}
+                >
+                  {projectCount ?? "—"}
+                </p>
+                <p className="text-xs text-emerald-600">Toplam Proje</p>
+              </div>
+            </div>
+            <div className="rounded-lg bg-amber-50 border border-amber-100 p-4 flex items-center gap-3">
+              <CheckSquare className="w-5 h-5 text-amber-600" />
+              <div>
+                <p
+                  className="text-2xl font-bold text-amber-700"
+                  style={{ fontFamily: "'Bricolage Grotesque', sans-serif" }}
+                >
+                  {taskCount ?? "—"}
+                </p>
+                <p className="text-xs text-amber-600">Toplam Görev</p>
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -167,6 +239,47 @@ export default function Settings({ session }: Props) {
                   : "—"}
             </Button>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Profile Edit */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Pencil className="w-4 h-4 text-primary" />
+            Profil Düzenle
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="profile-name">Ad Soyad</Label>
+            <Input
+              id="profile-name"
+              value={profileName}
+              onChange={(e) => setProfileName(e.target.value)}
+              placeholder="Adınız ve soyadınız"
+              data-ocid="settings.name.input"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="profile-email">E-posta</Label>
+            <Input
+              id="profile-email"
+              type="email"
+              value={profileEmail}
+              onChange={(e) => setProfileEmail(e.target.value)}
+              placeholder="ornek@sirket.com"
+              data-ocid="settings.email.input"
+            />
+          </div>
+          <Button
+            onClick={handleSaveProfile}
+            disabled={profileSaving}
+            className="w-full"
+            data-ocid="settings.save.button"
+          >
+            {profileSaving ? "Kaydediliyor..." : "Kaydet"}
+          </Button>
         </CardContent>
       </Card>
 

@@ -35,6 +35,15 @@ import { Loader2, Pencil, Plus, ShieldAlert, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
+import {
+  CartesianGrid,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 interface Props {
   session: Session;
 }
@@ -216,6 +225,33 @@ export default function HSE({ session }: Props) {
   const openCount = records.filter((r) => r.status === "açık").length;
   const canEdit = isAdmin(session.role);
 
+  const monthNames = [
+    "Oca",
+    "\u015eub",
+    "Mar",
+    "Nis",
+    "May",
+    "Haz",
+    "Tem",
+    "A\u011fu",
+    "Eyl",
+    "Eki",
+    "Kas",
+    "Ara",
+  ];
+  const now = new Date();
+  const trendData = Array.from({ length: 6 }, (_, i) => {
+    const d = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1);
+    const label = monthNames[d.getMonth()];
+    const count = records.filter((r) => {
+      const rd = new Date(Number(r.createdAt) / 1_000_000);
+      return (
+        rd.getFullYear() === d.getFullYear() && rd.getMonth() === d.getMonth()
+      );
+    }).length;
+    return { month: label, count };
+  });
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -335,6 +371,39 @@ export default function HSE({ session }: Props) {
         </Dialog>
       </div>
 
+      {records.length > 0 && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle
+              className="text-base flex items-center gap-2"
+              style={{ fontFamily: "'Bricolage Grotesque', sans-serif" }}
+            >
+              Aylu0131k u0130SG Trendi
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={200}>
+              <LineChart
+                data={trendData}
+                margin={{ top: 8, right: 16, left: -16, bottom: 0 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                <XAxis dataKey="month" tick={{ fontSize: 12 }} />
+                <YAxis tick={{ fontSize: 12 }} allowDecimals={false} />
+                <Tooltip />
+                <Line
+                  type="monotone"
+                  dataKey="count"
+                  stroke="#6366f1"
+                  strokeWidth={2}
+                  dot={{ r: 4 }}
+                  name="Kayu0131t"
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+      )}
       {/* Summary */}
       {!loading && records.length > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">

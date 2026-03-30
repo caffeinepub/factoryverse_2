@@ -42,6 +42,16 @@ export interface Task {
     projectId: ProjectId;
     companyId: CompanyId;
 }
+
+export type TaskNoteId = string;
+export interface TaskNote {
+    id: TaskNoteId;
+    taskId: string;
+    companyId: CompanyId;
+    content: string;
+    authorName: string;
+    createdAt: Timestamp;
+}
 export interface ProjectCost {
     id: ProjectCostId;
     title: string;
@@ -166,7 +176,7 @@ export interface backendInterface {
     addPersonnelToCompany(adminCode: Code, inviteCode: Code, role: string): Promise<void>;
     addProjectCost(companyId: string, projectId: string, title: string, category: string, amount: number, currency: string, description: string, createdBy: string): Promise<string>;
     addShipment(companyId: string, title: string, machineId: string, fromLocation: string, toLocation: string, carrier: string, shipDate: string, estimatedDelivery: string, notes: string): Promise<string>;
-    addTask(projectId: string, companyId: string, title: string, assigneeId: string, dueDate: string): Promise<bigint>;
+    addTask(projectId: string, companyId: string, title: string, assigneeId: string, dueDate: string, priority: string): Promise<bigint>;
     assignCallerUserRole(user: Principal, role: UserRole): Promise<void>;
     assignPersonnelToProject(companyId: string, projectId: string, personnelId: string, role: string): Promise<string>;
     authenticate(code: Code): Promise<AuthenticatedUser | null>;
@@ -219,7 +229,7 @@ export interface backendInterface {
     updatePersonnel(personnelId: string, name: string, role: string): Promise<void>;
     updateSupplier(supplierId: string, name: string, category: string, contactName: string, contactPhone: string, contactEmail: string, address: string, notes: string): Promise<void>;
     updateSupplierStatus(supplierId: string, status: string): Promise<void>;
-    updateTask(taskId: bigint, title: string, assigneeId: string, dueDate: string): Promise<void>;
+    updateTask(taskId: bigint, title: string, assigneeId: string, dueDate: string, priority: string): Promise<void>;
     // Sürüm 23
     updateShipment(shipmentId: string, title: string, machineId: string, fromLocation: string, toLocation: string, carrier: string, shipDate: string, estimatedDelivery: string, notes: string): Promise<void>;
     deleteShipment(shipmentId: string): Promise<void>;
@@ -229,6 +239,11 @@ export interface backendInterface {
     deleteMaintenancePlan(planId: string): Promise<void>;
     updateDocument(documentId: string, title: string, fileName: string, category: string): Promise<void>;
     updateProjectCost(costId: string, title: string, category: string, amount: number, currency: string, description: string): Promise<void>;
+    // Sürüm 25
+    addTaskNote(taskId: string, companyId: string, content: string, authorName: string): Promise<string>;
+    listTaskNotes(taskId: string): Promise<Array<TaskNote>>;
+    resetPersonnelLoginCode(personnelId: string): Promise<string>;
+    listTaskPriorities(companyId: string): Promise<Array<[bigint, string]>>;
     // Sürüm 24
     updateProject(projectId: string, name: string, description: string, deadline: string): Promise<void>;
     deleteProject(projectId: string): Promise<void>;

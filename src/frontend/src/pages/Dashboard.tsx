@@ -3,8 +3,10 @@ import type {
   FailureWithProject as Failure,
   Machine,
   Project,
+  Task,
 } from "@/backend.d";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
 import { useActor } from "@/hooks/useActor";
 import {
   AlertTriangle,
@@ -47,6 +49,7 @@ export default function Dashboard({ session, navigate }: Props) {
   const [machines, setMachines] = useState<Machine[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [failures, setFailures] = useState<Failure[]>([]);
+  const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: actor stabilizes after init
@@ -60,11 +63,13 @@ export default function Dashboard({ session, navigate }: Props) {
       actor.listMachines(session.companyId),
       actor.listProjects(session.companyId),
       anyActor.listFailures(session.companyId) as Promise<Failure[]>,
+      anyActor.listAllTasks(session.companyId) as Promise<Task[]>,
     ])
-      .then(([m, p, f]) => {
+      .then(([m, p, f, t]) => {
         setMachines(m);
         setProjects(p);
         setFailures(f);
+        setTasks(t);
       })
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -144,6 +149,19 @@ export default function Dashboard({ session, navigate }: Props) {
     },
     { name: "Çözüldü", value: failureStatusCounts.resolved, color: "#22c55e" },
   ];
+
+  // Project completion rates
+  const projectCompletionData = projects
+    .map((p) => {
+      const projectTasks = tasks.filter((t) => t.projectId === p.id);
+      const total = projectTasks.length;
+      const done = projectTasks.filter((t) => t.status === "done").length;
+      const rate = total === 0 ? 0 : Math.round((done / total) * 100);
+      return { project: p, total, done, rate };
+    })
+    .sort((a, b) => b.total - a.total)
+    .slice(0, 5)
+    .filter((item) => item.total > 0 || projects.length <= 5);
 
   return (
     <div className="space-y-6">
@@ -386,6 +404,63 @@ export default function Dashboard({ session, navigate }: Props) {
                   );
                 })}
               </div>
+            </div>
+          )}
+
+          {/* Project Completion Rates */}
+          {projects.length > 0 && (
+            <div>
+              <h3
+                className="text-base font-semibold mb-3"
+                style={{ fontFamily: "'Bricolage Grotesque', sans-serif" }}
+              >
+                Proje Tamamlanma Oranları
+              </h3>
+              <Card data-ocid="dashboard.completion.card">
+                <CardContent className="pt-4 space-y-4">
+                  {projectCompletionData.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-4">
+                      Görev verisi bulunan proje yok.
+                    </p>
+                  ) : (
+                    projectCompletionData.map((item, idx) => {
+                      const st = projectStatusMap[item.project.status] ?? {
+                        label: item.project.status,
+                        cls: "bg-gray-100 text-gray-600",
+                      };
+                      return (
+                        <div
+                          key={item.project.id}
+                          className="space-y-1"
+                          data-ocid={`dashboard.completion.item.${idx + 1}`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-medium truncate max-w-[180px]">
+                                {item.project.name}
+                              </span>
+                              <span
+                                className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${st.cls}`}
+                              >
+                                {st.label}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-muted-foreground">
+                                {item.done}/{item.total} görev
+                              </span>
+                              <span className="text-sm font-bold w-10 text-right">
+                                {item.rate}%
+                              </span>
+                            </div>
+                          </div>
+                          <Progress value={item.rate} className="h-2" />
+                        </div>
+                      );
+                    })
+                  )}
+                </CardContent>
+              </Card>
             </div>
           )}
 

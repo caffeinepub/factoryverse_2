@@ -58,6 +58,7 @@ export default function Documents({ session }: Props) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [filterCategory, setFilterCategory] = useState("tümü");
 
   const [form, setForm] = useState({
     title: "",
@@ -175,6 +176,10 @@ export default function Documents({ session }: Props) {
   };
 
   const canEdit = isAdmin(session.role);
+  const filteredDocs =
+    filterCategory === "tümü"
+      ? docs
+      : docs.filter((d) => d.category === filterCategory);
 
   return (
     <div className="space-y-6">
@@ -268,6 +273,31 @@ export default function Documents({ session }: Props) {
         </Dialog>
       </div>
 
+      {/* Category filter */}
+      <div className="flex gap-2 flex-wrap">
+        {["tümü", "teknik", "sözleşme", "diğer"].map((cat) => {
+          const count =
+            cat === "tümü"
+              ? docs.length
+              : docs.filter((d) => d.category === cat).length;
+          return (
+            <button
+              key={cat}
+              type="button"
+              onClick={() => setFilterCategory(cat)}
+              className={`px-3 py-1.5 rounded-full text-sm font-medium border transition-colors ${
+                filterCategory === cat
+                  ? "bg-indigo-600 text-white border-indigo-600"
+                  : "bg-white text-muted-foreground border-border hover:border-indigo-300"
+              }`}
+              data-ocid={"documents.filter.tab"}
+            >
+              {cat.charAt(0).toUpperCase() + cat.slice(1)} ({count})
+            </button>
+          );
+        })}
+      </div>
+
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base">
@@ -282,7 +312,7 @@ export default function Documents({ session }: Props) {
             >
               <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
             </div>
-          ) : docs.length === 0 ? (
+          ) : filteredDocs.length === 0 ? (
             <div
               className="flex flex-col items-center justify-center h-32 text-muted-foreground"
               data-ocid="documents.empty_state"
@@ -306,7 +336,7 @@ export default function Documents({ session }: Props) {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {docs.map((doc, idx) => {
+                  {filteredDocs.map((doc, idx) => {
                     const cat = categoryMap[doc.category] ?? {
                       label: doc.category,
                       cls: "bg-gray-100 text-gray-600",

@@ -84,6 +84,16 @@ actor {
     dueDate : DeadLine;
   };
 
+  public type TaskNoteId = Text;
+  public type TaskNote = {
+    id : TaskNoteId;
+    taskId : Text;
+    companyId : CompanyId;
+    content : Text;
+    authorName : Text;
+    createdAt : Timestamp;
+  };
+
   public type Failure = {
     id : FailureId;
     machineId : MachineId;
@@ -222,6 +232,7 @@ actor {
   let machines = Map.empty<MachineId, Machine>();
   let projects = Map.empty<ProjectId, Project>();
   let taskStore = Map.empty<TaskId, Task>();
+  let taskPriorityStore = Map.empty<Nat, Text>();
   let failureStore = Map.empty<FailureId, Failure>();
   let failureProjectStore = Map.empty<FailureId, Text>();
   let documentStore = Map.empty<DocumentId, Document>();
@@ -236,6 +247,7 @@ actor {
   let userProfiles = Map.empty<Principal, UserProfile>();
   let failureMaintenanceStore = Map.empty<FailureId, MaintenancePlanId>();
   let supplierStore = Map.empty<SupplierId, Supplier>();
+  let taskNoteStore = Map.empty<TaskNoteId, TaskNote>();
 
   var nextCompanyId = 1;
   var nextProjectId = 1;
@@ -248,6 +260,7 @@ actor {
   var nextProjectCostId = 1;
   var nextProjectAssignmentId = 1;
   var nextSupplierId = 1;
+  var nextTaskNoteId = 1;
 
   func getNextCompanyId() : CompanyId {
     let id = nextCompanyId.toText();
@@ -566,13 +579,13 @@ actor {
     };
   };
 
-  public shared ({ caller }) func addTask(projectId : Text, companyId : Text, title : Text, assigneeId : Text, dueDate : Text) : async Nat {
+  public shared ({ caller }) func addTask(projectId : Text, companyId : Text, title : Text, assigneeId : Text, dueDate : Text, priority : Text) : async Nat {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Runtime.trap("Unauthorized: Only authenticated users can add tasks");
     };
     verifyCompanyAccess(caller, companyId);
     if (not checkProjectExists(projectId)) { Runtime.trap("Project does not exist.") };
-    if (title.size() > 30) { Runtime.trap("Task title too long, max 30 chars.") };
+    if (title.size() > 50) { Runtime.trap("Task title too long, max 50 chars.") };
     switch (projects.get(projectId)) {
       case (?project) {
         if (project.companyId != companyId) { Runtime.trap("Project does not belong to this company") };
@@ -580,8 +593,10 @@ actor {
       case null { Runtime.trap("Project does not exist.") };
     };
     let id = getNextTaskId();
+    let p = if (priority == "") "medium" else priority;
     let task : Task = { id; projectId; companyId; title; status = "pending"; assigneeId; dueDate };
     taskStore.add(id, task);
+    taskPriorityStore.add(id, p);
     id;
   };
 
@@ -1012,7 +1027,7 @@ actor {
   };
 
   // Task update
-  public shared ({ caller }) func updateTask(taskId : Nat, title : Text, assigneeId : Text, dueDate : Text) : async () {
+  public shared ({ caller }) func updateTask(taskId : Nat, title : Text, assigneeId : Text, dueDate : Text, priority : Text) : async () {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Runtime.trap("Unauthorized");
     };
@@ -1022,6 +1037,7 @@ actor {
         verifyCompanyAccess(caller, task.companyId);
         let updated : Task = { task with title; assigneeId; dueDate };
         taskStore.add(taskId, updated);
+        if (priority != "") { taskPriorityStore.add(taskId, priority) };
       };
     };
   };
@@ -1325,6 +1341,66 @@ actor {
     };
     verifyCompanyAccess(caller, companyId);
     maintenancePlanProjectStore.entries().toArray();
+  };
+
+  // Task Priorities
+  public query ({ caller }) func listTaskPriorities(companyId : Text) : async [(Nat, Text)] {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized");
+    };
+    verifyCompanyAccess(caller, companyId);
+    taskStore.values().toArray()
+      .filter(func(t) { t.companyId == companyId })
+      .map(func(t) {
+        let prio = switch (taskPriorityStore.get(t.id)) {
+          case (?p) { p };
+          case null { "medium" };
+        };
+        (t.id, prio);
+      });
+  };
+
+  // Task Notes
+  public shared ({ caller }) func addTaskNote(taskId : Text, companyId : Text, content : Text, authorName : Text) : async Text {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized");
+    };
+    verifyCompanyAccess(caller, companyId);
+    if (content.size() > 300) { Runtime.trap("Note too long, max 300 chars.") };
+    let id = nextTaskNoteId.toText();
+    nextTaskNoteId += 1;
+    let note : TaskNote = { id; taskId; companyId; content; authorName; createdAt = Time.now() };
+    taskNoteStore.add(id, note);
+    id;
+  };
+
+  public query ({ caller }) func listTaskNotes(taskId : Text) : async [TaskNote] {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized");
+    };
+    taskNoteStore.values().toArray().filter(func(n) { n.taskId == taskId });
+  };
+
+  // Reset personnel login code
+  public shared ({ caller }) func resetPersonnelLoginCode(personnelId : Text) : async Text {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized");
+    };
+    switch (personnel.get(personnelId)) {
+      case (null) { Runtime.trap("Personnel not found.") };
+      case (?p) {
+        switch (p.companyId) {
+          case (null) { Runtime.trap("Personnel not in a company.") };
+          case (?cid) {
+            verifyCompanyAccess(caller, cid);
+            let newCode = "LP" # Time.now().toText();
+            let updated : Personnel = { p with loginCode = newCode };
+            personnel.add(personnelId, updated);
+            newCode;
+          };
+        };
+      };
+    };
   };
 
 };

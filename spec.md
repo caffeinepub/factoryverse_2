@@ -1,39 +1,29 @@
-# FactoryVerse – Sürüm 23
+# FactoryVerse — Sürüm 27
 
 ## Current State
-MVP kapsamlı modüller içeriyor: kimlik doğrulama, makine, proje, personel, bakım/arıza, görev, doküman, İSG, lojistik, bildirimler, takvim, QR kod, bakım planı, performans, maliyet takibi, personel detay, proje detay, proje ekibi, proje-arıza bağlantısı, proje durum yönetimi, raporlar, tedarikçiler, personel düzenleme/silme, görev düzenleme/silme, makine düzenleme/silme.
-
-Eksik: Lojistik/İSG/BakımPlanı/Doküman/Maliyet kayıtları için düzenleme ve silme, Ayarlar sayfası.
+- Personnel.tsx: Edit/delete dialog kodu mevcut, backend'de `updatePersonnel(id, name, role)` ve `deletePersonnel(id)` API'leri var.
+- Settings.tsx: Sadece bilgi gösterimi var (rol, giriş kodu, sayım kartları). Düzenleme yok. Backend'de `saveCallerUserProfile(UserProfile)` ve `getCallerUserProfile()` mevcut.
+- Suppliers.tsx: Tam CRUD + CSV export var. Puanlama (rating) yok. Backend'de supplier rating API'si yok.
+- HSE.tsx: Tam CRUD var. Grafik/trend yok.
 
 ## Requested Changes (Diff)
 
 ### Add
-- Backend: `updateShipment`, `deleteShipment` fonksiyonları
-- Backend: `updateHseRecord`, `deleteHseRecord` fonksiyonları  
-- Backend: `updateMaintenancePlan`, `deleteMaintenancePlan` fonksiyonları
-- Backend: `updateDocument` fonksiyonu (deleteDocument zaten var)
-- Backend: `updateProjectCost` fonksiyonu (deleteProjectCost zaten var)
-- Frontend: Lojistik sayfasında düzenle (edit dialog) ve sil butonları
-- Frontend: İSG sayfasında düzenle ve sil butonları
-- Frontend: Bakım Planı sayfasında düzenle ve sil butonları
-- Frontend: Dokümanlar sayfasında düzenle butonu
-- Frontend: Maliyet Takibi sayfasında düzenle butonu
-- Frontend: Yeni Ayarlar sayfası (Settings) – şirket bilgisi, mevcut kullanıcı profili, kodu göster/gizle
+- Settings sayfasına profil düzenleme formu: kullanıcı adını ve emailini `saveCallerUserProfile` ile kaydedebilsin, `getCallerUserProfile` ile mevcut bilgileri çeksin.
+- Tedarikçiler sayfasına frontend-only yıldız puanı (1-5) UI: localStorage tabanlı, her tedarikçi için görsel yıldız gösterimi ve not alanı. Multi-device sync dışı, görsel kolaylık için.
+- HSE sayfasına aylık trend grafiği: mevcut records'tan aylık kaza/olay sayısını hesaplayarak recharts LineChart ile göster.
+- Personnel.tsx'e edit/delete butonlarının doğru çalıştığını doğrulayın — mevcutsa herhangi bir bug/eksiklik giderin.
 
 ### Modify
-- backend.d.ts: yeni fonksiyon imzaları eklenir
-- AppShell: `case "settings"` bağlanır
+- Settings.tsx: Mevcut bilgi kartlarını koru, yeni bölüm olarak "Profil Düzenle" formu ekle (ad ve email).
+- HSE.tsx: Sayfanın üstüne istatistik grafiği bölümü ekle, kaydı altına mevcut tablo.
+- Suppliers.tsx: Her tedarikçi satırına görsel yıldız puanı ekle (1-5, tıklayarak seçilebilir).
 
 ### Remove
-- Yok
+- Hiçbir şey kaldırılmıyor.
 
 ## Implementation Plan
-1. main.mo sonuna 8 yeni backend fonksiyonu ekle
-2. backend.d.ts'e yeni imzalar ekle
-3. Logistics.tsx: her satıra edit dialog + delete butonu ekle
-4. HSE.tsx: her satıra edit dialog + delete butonu ekle
-5. MaintenancePlan.tsx: her plana edit dialog + delete butonu ekle
-6. Documents.tsx: her dokümana edit dialog ekle
-7. ProjectCosts.tsx: her maliyete edit dialog ekle
-8. Settings.tsx sayfası oluştur: şirket adı/modu, personel adı/rolü/kodu göster, değiştirme formu
-9. AppShell.tsx: settings case ekle
+1. Settings.tsx: `getCallerUserProfile` ile profil yükle, ad/email formu + kaydet butonu + `saveCallerUserProfile` çağrısı ekle.
+2. Suppliers.tsx: Her tedarikçi için `supplierRatings` state objesi tut (localStorage'dan başlat), tablo hücresine 5 yıldız bileşeni ekle (tıklanabilir, sarı dolgu).
+3. HSE.tsx: Records yüklenince aylık grupla (son 6 ay), recharts ResponsiveContainer+LineChart ile göster. Import: recharts.
+4. Personnel.tsx: Edit/delete zaten kodda var; `updatePersonnel` ve `deletePersonnel` API çağrıları doğru mu kontrol et. Gerekirse düzelt.

@@ -31,6 +31,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useActor } from "@/hooks/useActor";
 import {
   Building2,
+  FileDown,
   Loader2,
   Pencil,
   Plus,
@@ -57,12 +58,36 @@ const emptyForm = {
   notes: "",
 };
 
+function downloadCsv(filename: string, headers: string[], rows: string[][]) {
+  const csvEsc = (v: string) => `"${v.replace(/"/g, '""')}"`;
+  const csv = [
+    headers.map(csvEsc).join(","),
+    ...rows.map((r) => r.map(csvEsc).join(",")),
+  ].join("\n");
+  const blob = new Blob([`\uFEFF${csv}`], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 export default function Suppliers({ session }: Props) {
   const { actor } = useActor();
   const api = actor as any;
   const isAdmin = session.role === "companyAdmin" || session.role === "admin";
 
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [ratings, setRatings] = useState<Record<string, number>>(() => {
+    try {
+      return JSON.parse(
+        localStorage.getItem("supplierRatings") ?? "{}",
+      ) as Record<string, number>;
+    } catch {
+      return {};
+    }
+  });
   const [loading, setLoading] = useState(true);
 
   // Add dialog
@@ -205,6 +230,28 @@ export default function Suppliers({ session }: Props) {
     }
   };
 
+  const handleExportCsv = () => {
+    downloadCsv(
+      "tedarikciler.csv",
+      ["Ad", "Kategori", "Yetkili", "Telefon", "E-posta", "Adres", "Durum"],
+      suppliers.map((s) => [
+        s.name,
+        s.category,
+        s.contactName,
+        s.contactPhone,
+        s.contactEmail,
+        s.address,
+        s.status === "active" ? "Aktif" : "Pasif",
+      ]),
+    );
+  };
+
+  const handleSetRating = (supplierId: string, rating: number) => {
+    const updated = { ...ratings, [supplierId]: rating };
+    setRatings(updated);
+    localStorage.setItem("supplierRatings", JSON.stringify(updated));
+  };
+
   const SupplierForm = ({
     form,
     setForm,
@@ -328,14 +375,25 @@ export default function Suppliers({ session }: Props) {
             {suppliers.length} tedarikçi kayıtlı
           </p>
         </div>
-        {isAdmin && (
-          <Button
-            onClick={() => setAddOpen(true)}
-            data-ocid="suppliers.add.open_modal_button"
-          >
-            <Plus className="w-4 h-4 mr-2" /> Tedarikçi Ekle
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          {suppliers.length > 0 && (
+            <Button
+              variant="outline"
+              onClick={handleExportCsv}
+              data-ocid="suppliers.csv.button"
+            >
+              <FileDown className="w-4 h-4 mr-2" /> CSV İndir
+            </Button>
+          )}
+          {isAdmin && (
+            <Button
+              onClick={() => setAddOpen(true)}
+              data-ocid="suppliers.add.open_modal_button"
+            >
+              <Plus className="w-4 h-4 mr-2" /> Tedarikçi Ekle
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Add Dialog */}
@@ -463,6 +521,7 @@ export default function Suppliers({ session }: Props) {
                 <TableHead className="hidden md:table-cell">Yetkili</TableHead>
                 <TableHead className="hidden md:table-cell">Telefon</TableHead>
                 <TableHead>Durum</TableHead>
+                <TableHead>Puan</TableHead>
                 {isAdmin && <TableHead className="w-32">İşlemler</TableHead>}
               </TableRow>
             </TableHeader>
@@ -491,6 +550,22 @@ export default function Suppliers({ session }: Props) {
                     >
                       {s.status === "active" ? "Aktif" : "Pasif"}
                     </span>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-0.5">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <button
+                          key={star}
+                          type="button"
+                          onClick={() =>
+                            isAdmin ? handleSetRating(s.id, star) : undefined
+                          }
+                          className={`text-lg leading-none ${isAdmin ? "cursor-pointer hover:scale-110 transition-transform" : "cursor-default"} ${star <= (ratings[s.id] ?? 0) ? "text-amber-400" : "text-gray-300"}`}
+                        >
+                          ★
+                        </button>
+                      ))}
+                    </div>
                   </TableCell>
                   {isAdmin && (
                     <TableCell>
