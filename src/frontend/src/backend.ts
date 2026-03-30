@@ -293,6 +293,16 @@ export interface backendInterface {
     updateProjectStatus(projectId: string, status: string): Promise<void>;
     updateShipmentStatus(shipmentId: string, status: string): Promise<void>;
     updateTaskStatus(taskId: bigint, status: string): Promise<void>;
+    addSupplier(companyId: string, name: string, category: string, contactName: string, contactPhone: string, contactEmail: string, address: string, notes: string): Promise<string>;
+    deletePersonnel(personnelId: string): Promise<void>;
+    deleteSupplier(supplierId: string): Promise<void>;
+    listAllTasks(companyId: string): Promise<Array<Task>>;
+    listSuppliers(companyId: string): Promise<Array<Supplier>>;
+    resolveFailure(failureId: string, resolutionNote: string): Promise<void>;
+    updatePersonnel(personnelId: string, name: string, role: string): Promise<void>;
+    updateSupplier(supplierId: string, name: string, category: string, contactName: string, contactPhone: string, contactEmail: string, address: string, notes: string): Promise<void>;
+    updateSupplierStatus(supplierId: string, status: string): Promise<void>;
+    updateTask(taskId: bigint, title: string, assigneeId: string, dueDate: string): Promise<void>;
 }
 import type { AuthenticatedUser as _AuthenticatedUser, Code as _Code, CompanyId as _CompanyId, Personnel as _Personnel, PersonnelId as _PersonnelId, Timestamp as _Timestamp, UserProfile as _UserProfile, UserRole as _UserRole } from "./declarations/backend.did.d.ts";
 export class Backend implements backendInterface {
@@ -960,6 +970,36 @@ export class Backend implements backendInterface {
             const result = await this.actor.updateTaskStatus(arg0, arg1);
             return result;
         }
+    }
+    async addSupplier(arg0: string, arg1: string, arg2: string, arg3: string, arg4: string, arg5: string, arg6: string, arg7: string): Promise<string> {
+        if (this.processError) { try { return await this.actor.addSupplier(arg0,arg1,arg2,arg3,arg4,arg5,arg6,arg7); } catch(e) { this.processError(e); throw new Error("unreachable"); } } else { return await this.actor.addSupplier(arg0,arg1,arg2,arg3,arg4,arg5,arg6,arg7); }
+    }
+    async deletePersonnel(arg0: string): Promise<void> {
+        if (this.processError) { try { return await this.actor.deletePersonnel(arg0); } catch(e) { this.processError(e); throw new Error("unreachable"); } } else { return await this.actor.deletePersonnel(arg0); }
+    }
+    async deleteSupplier(arg0: string): Promise<void> {
+        if (this.processError) { try { return await this.actor.deleteSupplier(arg0); } catch(e) { this.processError(e); throw new Error("unreachable"); } } else { return await this.actor.deleteSupplier(arg0); }
+    }
+    async listAllTasks(arg0: string): Promise<Array<Task>> {
+        if (this.processError) { try { return await this.actor.listAllTasks(arg0); } catch(e) { this.processError(e); throw new Error("unreachable"); } } else { return await this.actor.listAllTasks(arg0); }
+    }
+    async listSuppliers(arg0: string): Promise<Array<Supplier>> {
+        if (this.processError) { try { return await this.actor.listSuppliers(arg0); } catch(e) { this.processError(e); throw new Error("unreachable"); } } else { return await this.actor.listSuppliers(arg0); }
+    }
+    async resolveFailure(arg0: string, arg1: string): Promise<void> {
+        if (this.processError) { try { return await this.actor.resolveFailure(arg0,arg1); } catch(e) { this.processError(e); throw new Error("unreachable"); } } else { return await this.actor.resolveFailure(arg0,arg1); }
+    }
+    async updatePersonnel(arg0: string, arg1: string, arg2: string): Promise<void> {
+        if (this.processError) { try { return await this.actor.updatePersonnel(arg0,arg1,arg2); } catch(e) { this.processError(e); throw new Error("unreachable"); } } else { return await this.actor.updatePersonnel(arg0,arg1,arg2); }
+    }
+    async updateSupplier(arg0: string, arg1: string, arg2: string, arg3: string, arg4: string, arg5: string, arg6: string, arg7: string): Promise<void> {
+        if (this.processError) { try { return await this.actor.updateSupplier(arg0,arg1,arg2,arg3,arg4,arg5,arg6,arg7); } catch(e) { this.processError(e); throw new Error("unreachable"); } } else { return await this.actor.updateSupplier(arg0,arg1,arg2,arg3,arg4,arg5,arg6,arg7); }
+    }
+    async updateSupplierStatus(arg0: string, arg1: string): Promise<void> {
+        if (this.processError) { try { return await this.actor.updateSupplierStatus(arg0,arg1); } catch(e) { this.processError(e); throw new Error("unreachable"); } } else { return await this.actor.updateSupplierStatus(arg0,arg1); }
+    }
+    async updateTask(arg0: bigint, arg1: string, arg2: string, arg3: string): Promise<void> {
+        if (this.processError) { try { return await this.actor.updateTask(arg0,arg1,arg2,arg3); } catch(e) { this.processError(e); throw new Error("unreachable"); } } else { return await this.actor.updateTask(arg0,arg1,arg2,arg3); }
     }
 }
 function from_candid_AuthenticatedUser_n4(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: _AuthenticatedUser): AuthenticatedUser {

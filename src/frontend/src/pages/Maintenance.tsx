@@ -36,7 +36,14 @@ import {
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { useActor } from "@/hooks/useActor";
-import { ChevronDown, Link2, Loader2, Plus, Wrench } from "lucide-react";
+import {
+  CheckCircle2,
+  ChevronDown,
+  Link2,
+  Loader2,
+  Plus,
+  Wrench,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -96,6 +103,14 @@ export default function Maintenance({ session }: Props) {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+
+  // Resolve dialog
+  const [resolveDialogOpen, setResolveDialogOpen] = useState(false);
+  const [resolvingFailure, setResolvingFailure] = useState<Failure | null>(
+    null,
+  );
+  const [resolutionNote, setResolutionNote] = useState("");
+  const [resolveSubmitting, setResolveSubmitting] = useState(false);
 
   // Bakım bağlama state
   const [linkDialogOpen, setLinkDialogOpen] = useState(false);
@@ -184,6 +199,16 @@ export default function Maintenance({ session }: Props) {
 
   const handleStatusChange = async (failureId: string, status: string) => {
     if (!api) return;
+    if (status === "resolved") {
+      // Open resolve dialog
+      const failure = failures.find((f) => f.id === failureId);
+      if (failure) {
+        setResolvingFailure(failure);
+        setResolutionNote("");
+        setResolveDialogOpen(true);
+      }
+      return;
+    }
     try {
       await api.updateFailureStatus(failureId, status);
       toast.success("Durum güncellendi.");
@@ -192,6 +217,25 @@ export default function Maintenance({ session }: Props) {
       );
     } catch {
       toast.error("Durum güncellenirken hata oluştu.");
+    }
+  };
+
+  const handleResolveSubmit = async () => {
+    if (!resolvingFailure || !api) return;
+    setResolveSubmitting(true);
+    try {
+      await api.resolveFailure(resolvingFailure.id, resolutionNote);
+      toast.success("Arıza çözüldü olarak işaretlendi.");
+      setFailures((prev) =>
+        prev.map((f) =>
+          f.id === resolvingFailure.id ? { ...f, status: "resolved" } : f,
+        ),
+      );
+      setResolveDialogOpen(false);
+    } catch {
+      toast.error("Çözüm kaydedilirken hata oluştu.");
+    } finally {
+      setResolveSubmitting(false);
     }
   };
 
@@ -236,6 +280,14 @@ export default function Maintenance({ session }: Props) {
     } catch {
       return "—";
     }
+  };
+
+  const getResolutionNote = (resolvedAt: any): string | null => {
+    if (!resolvedAt) return null;
+    const raw =
+      typeof resolvedAt === "string" ? resolvedAt : String(resolvedAt);
+    if (raw.includes("|")) return raw.split("|")[0];
+    return null;
   };
 
   const getProjectName = (projectId: string) => {
@@ -395,6 +447,61 @@ export default function Maintenance({ session }: Props) {
         </Dialog>
       </div>
 
+      {/* Resolve Dialog */}
+      <Dialog open={resolveDialogOpen} onOpenChange={setResolveDialogOpen}>
+        <DialogContent
+          aria-describedby="resolve-failure-desc"
+          data-ocid="maintenance.resolve.dialog"
+        >
+          <DialogHeader>
+            <DialogTitle
+              style={{ fontFamily: "'Bricolage Grotesque', sans-serif" }}
+            >
+              Arızayı Çöz
+            </DialogTitle>
+            <DialogDescription id="resolve-failure-desc">
+              "{resolvingFailure?.title}" arızası için çözüm notu girin.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label>Çözüm Notu</Label>
+              <Textarea
+                value={resolutionNote}
+                onChange={(e) => setResolutionNote(e.target.value)}
+                rows={4}
+                placeholder="Yapılan işlemleri, değiştirilen parçaları veya çözüm detaylarını yazın..."
+                data-ocid="maintenance.resolve.textarea"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setResolveDialogOpen(false)}
+              data-ocid="maintenance.resolve.cancel_button"
+            >
+              İptal
+            </Button>
+            <Button
+              onClick={handleResolveSubmit}
+              disabled={resolveSubmitting}
+              className="bg-green-600 hover:bg-green-700"
+              data-ocid="maintenance.resolve.confirm_button"
+            >
+              {resolveSubmitting ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <CheckCircle2 className="w-4 h-4 mr-2" />
+              )}
+              {resolveSubmitting
+                ? "Kaydediliyor..."
+                : "Çözüldü Olarak İşaretle"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Bakım Bağlama Dialog */}
       <Dialog open={linkDialogOpen} onOpenChange={setLinkDialogOpen}>
         <DialogContent
@@ -510,18 +617,26 @@ export default function Maintenance({ session }: Props) {
                 };
                 const projName = getProjectName(f.projectId);
                 const isLinked = !!linkedFailures[f.id];
+                const resNote = getResolutionNote((f as any).resolvedAt);
                 return (
                   <TableRow
                     key={f.id}
                     data-ocid={`maintenance.item.${idx + 1}`}
                   >
                     <TableCell className="font-medium">
-                      <div className="flex items-center gap-1.5">
-                        {f.title}
-                        {isLinked && (
-                          <span className="text-xs px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700 font-medium">
-                            Bakıma Bağlı
-                          </span>
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-1.5">
+                          {f.title}
+                          {isLinked && (
+                            <span className="text-xs px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700 font-medium">
+                              Bakıma Bağlı
+                            </span>
+                          )}
+                        </div>
+                        {resNote && (
+                          <p className="text-xs text-muted-foreground italic">
+                            Çözüm: {resNote}
+                          </p>
                         )}
                       </div>
                     </TableCell>

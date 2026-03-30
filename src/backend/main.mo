@@ -9,8 +9,8 @@ import Array "mo:core/Array";
 import Principal "mo:core/Principal";
 import AccessControl "authorization/access-control";
 import MixinAuthorization "authorization/MixinAuthorization";
-import Migration "migration";
-(with migration = Migration.run)
+
+
 actor {
   let accessControlState = AccessControl.initState();
   include MixinAuthorization(accessControlState);
@@ -32,6 +32,7 @@ actor {
   type ProjectAssignmentId = Text;
   type MaintenancePlanId = Text;
   type ProjectCostId = Text;
+  type SupplierId = Text;
 
   public type Company = {
     id : CompanyId;
@@ -183,6 +184,20 @@ actor {
     assignedAt : Timestamp;
   };
 
+  public type Supplier = {
+    id : SupplierId;
+    companyId : CompanyId;
+    name : Text;
+    category : Text;
+    contactName : Text;
+    contactPhone : Text;
+    contactEmail : Text;
+    address : Text;
+    notes : Text;
+    status : Text;
+    createdAt : Timestamp;
+  };
+
   public type AuthenticatedUser = {
     companyId : ?CompanyId;
     personnelId : ?PersonnelId;
@@ -220,6 +235,7 @@ actor {
   let principalToCompany = Map.empty<Principal, CompanyId>();
   let userProfiles = Map.empty<Principal, UserProfile>();
   let failureMaintenanceStore = Map.empty<FailureId, MaintenancePlanId>();
+  let supplierStore = Map.empty<SupplierId, Supplier>();
 
   var nextCompanyId = 1;
   var nextProjectId = 1;
@@ -231,6 +247,7 @@ actor {
   var nextMaintenancePlanId = 1;
   var nextProjectCostId = 1;
   var nextProjectAssignmentId = 1;
+  var nextSupplierId = 1;
 
   func getNextCompanyId() : CompanyId {
     let id = nextCompanyId.toText();
@@ -956,6 +973,258 @@ actor {
           case (?maintenancePlanId) { maintenancePlanId };
           case null { "" };
         };
+      };
+    };
+  };
+
+  func getNextSupplierId() : SupplierId {
+    let id = "sup-" # nextSupplierId.toText();
+    nextSupplierId += 1;
+    id;
+  };
+
+  // Personnel update/delete
+  public shared ({ caller }) func updatePersonnel(personnelId : Text, name : Text, role : Text) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized");
+    };
+    switch (personnel.get(personnelId)) {
+      case (null) { Runtime.trap("Personnel not found.") };
+      case (?p) {
+        verifyCompanyAccess(caller, switch (p.companyId) { case (?cid) cid; case null "" });
+        let updated : Personnel = { p with name; role };
+        personnel.add(personnelId, updated);
+      };
+    };
+  };
+
+  public shared ({ caller }) func deletePersonnel(personnelId : Text) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized");
+    };
+    switch (personnel.get(personnelId)) {
+      case (null) { Runtime.trap("Personnel not found.") };
+      case (?p) {
+        verifyCompanyAccess(caller, switch (p.companyId) { case (?cid) cid; case null "" });
+        personnel.remove(personnelId);
+      };
+    };
+  };
+
+  // Task update
+  public shared ({ caller }) func updateTask(taskId : Nat, title : Text, assigneeId : Text, dueDate : Text) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized");
+    };
+    switch (taskStore.get(taskId)) {
+      case (null) { Runtime.trap("Task not found.") };
+      case (?task) {
+        verifyCompanyAccess(caller, task.companyId);
+        let updated : Task = { task with title; assigneeId; dueDate };
+        taskStore.add(taskId, updated);
+      };
+    };
+  };
+
+  // List all company tasks
+  public query ({ caller }) func listAllTasks(companyId : Text) : async [Task] {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized");
+    };
+    verifyCompanyAccess(caller, companyId);
+    taskStore.values().toArray().filter(func(t) { t.companyId == companyId });
+  };
+
+  // Resolve failure with note
+  public shared ({ caller }) func resolveFailure(failureId : Text, resolutionNote : Text) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized");
+    };
+    switch (failureStore.get(failureId)) {
+      case (null) { Runtime.trap("Failure not found.") };
+      case (?failure) {
+        verifyCompanyAccess(caller, failure.companyId);
+        let resolvedAt = resolutionNote # "|" # Time.now().toText();
+        let updated : Failure = { failure with status = "resolved"; resolvedAt };
+        failureStore.add(failureId, updated);
+      };
+    };
+  };
+
+  // Supplier module
+  public shared ({ caller }) func addSupplier(companyId : Text, name : Text, category : Text, contactName : Text, contactPhone : Text, contactEmail : Text, address : Text, notes : Text) : async Text {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized");
+    };
+    verifyCompanyAccess(caller, companyId);
+    if (name.size() > 80) { Runtime.trap("Name too long, max 80 chars.") };
+    let id = getNextSupplierId();
+    let supplier : Supplier = { id; companyId; name; category; contactName; contactPhone; contactEmail; address; notes; status = "active"; createdAt = Time.now() };
+    supplierStore.add(id, supplier);
+    id;
+  };
+
+  public query ({ caller }) func listSuppliers(companyId : Text) : async [Supplier] {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized");
+    };
+    verifyCompanyAccess(caller, companyId);
+    supplierStore.values().toArray().filter(func(s) { s.companyId == companyId });
+  };
+
+  public shared ({ caller }) func updateSupplier(supplierId : Text, name : Text, category : Text, contactName : Text, contactPhone : Text, contactEmail : Text, address : Text, notes : Text) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized");
+    };
+    switch (supplierStore.get(supplierId)) {
+      case (null) { Runtime.trap("Supplier not found.") };
+      case (?s) {
+        verifyCompanyAccess(caller, s.companyId);
+        let updated : Supplier = { s with name; category; contactName; contactPhone; contactEmail; address; notes };
+        supplierStore.add(supplierId, updated);
+      };
+    };
+  };
+
+  public shared ({ caller }) func updateSupplierStatus(supplierId : Text, status : Text) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized");
+    };
+    switch (supplierStore.get(supplierId)) {
+      case (null) { Runtime.trap("Supplier not found.") };
+      case (?s) {
+        verifyCompanyAccess(caller, s.companyId);
+        let updated : Supplier = { s with status };
+        supplierStore.add(supplierId, updated);
+      };
+    };
+  };
+
+  public shared ({ caller }) func deleteSupplier(supplierId : Text) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized");
+    };
+    switch (supplierStore.get(supplierId)) {
+      case (null) { Runtime.trap("Supplier not found.") };
+      case (?s) {
+        verifyCompanyAccess(caller, s.companyId);
+        supplierStore.remove(supplierId);
+      };
+    };
+  };
+
+  // ===== Sürüm 23 Additions =====
+
+  // Shipment update/delete
+  public shared ({ caller }) func updateShipment(shipmentId : Text, title : Text, machineId : Text, fromLocation : Text, toLocation : Text, carrier : Text, shipDate : Text, estimatedDelivery : Text, notes : Text) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized");
+    };
+    switch (shipmentStore.get(shipmentId)) {
+      case (null) { Runtime.trap("Shipment not found.") };
+      case (?s) {
+        verifyCompanyAccess(caller, s.companyId);
+        let updated : Shipment = { s with title; machineId; fromLocation; toLocation; carrier; shipDate; estimatedDelivery; notes };
+        shipmentStore.add(shipmentId, updated);
+      };
+    };
+  };
+
+  public shared ({ caller }) func deleteShipment(shipmentId : Text) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized");
+    };
+    switch (shipmentStore.get(shipmentId)) {
+      case (null) { Runtime.trap("Shipment not found.") };
+      case (?s) {
+        verifyCompanyAccess(caller, s.companyId);
+        shipmentStore.remove(shipmentId);
+      };
+    };
+  };
+
+  // HSE update/delete
+  public shared ({ caller }) func updateHseRecord(hseId : Text, hseType : Text, title : Text, description : Text, severity : Text) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized");
+    };
+    switch (hseStore.get(hseId)) {
+      case (null) { Runtime.trap("HSE record not found.") };
+      case (?r) {
+        verifyCompanyAccess(caller, r.companyId);
+        let updated : HseRecord = { r with hseType; title; description; severity };
+        hseStore.add(hseId, updated);
+      };
+    };
+  };
+
+  public shared ({ caller }) func deleteHseRecord(hseId : Text) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized");
+    };
+    switch (hseStore.get(hseId)) {
+      case (null) { Runtime.trap("HSE record not found.") };
+      case (?r) {
+        verifyCompanyAccess(caller, r.companyId);
+        hseStore.remove(hseId);
+      };
+    };
+  };
+
+  // MaintenancePlan update/delete
+  public shared ({ caller }) func updateMaintenancePlan(planId : Text, title : Text, description : Text, frequency : Text, nextDate : Text, assignedTo : Text) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized");
+    };
+    switch (maintenancePlanStore.get(planId)) {
+      case (null) { Runtime.trap("Maintenance plan not found.") };
+      case (?p) {
+        verifyCompanyAccess(caller, p.companyId);
+        let updated : MaintenancePlan = { p with title; description; frequency; nextDate; assignedTo };
+        maintenancePlanStore.add(planId, updated);
+      };
+    };
+  };
+
+  public shared ({ caller }) func deleteMaintenancePlan(planId : Text) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized");
+    };
+    switch (maintenancePlanStore.get(planId)) {
+      case (null) { Runtime.trap("Maintenance plan not found.") };
+      case (?p) {
+        verifyCompanyAccess(caller, p.companyId);
+        maintenancePlanStore.remove(planId);
+      };
+    };
+  };
+
+  // Document update
+  public shared ({ caller }) func updateDocument(documentId : Text, title : Text, fileName : Text, category : Text) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized");
+    };
+    switch (documentStore.get(documentId)) {
+      case (null) { Runtime.trap("Document not found.") };
+      case (?d) {
+        verifyCompanyAccess(caller, d.companyId);
+        let updated : Document = { d with title; fileName; category };
+        documentStore.add(documentId, updated);
+      };
+    };
+  };
+
+  // ProjectCost update
+  public shared ({ caller }) func updateProjectCost(costId : Text, title : Text, category : Text, amount : Float, currency : Text, description : Text) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized");
+    };
+    switch (projectCostStore.get(costId)) {
+      case (null) { Runtime.trap("Cost record not found.") };
+      case (?c) {
+        verifyCompanyAccess(caller, c.companyId);
+        let updated : ProjectCost = { c with title; category; amount; currency; description };
+        projectCostStore.add(costId, updated);
       };
     };
   };

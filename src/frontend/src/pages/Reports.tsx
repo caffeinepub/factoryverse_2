@@ -1,7 +1,9 @@
 import type { Session } from "@/App";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
 import { useActor } from "@/hooks/useActor";
-import { BarChart3, Loader2 } from "lucide-react";
+import { BarChart3, Download, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -31,11 +33,29 @@ interface ReportData {
   topCostProjects: { name: string; total: number }[];
 }
 
+function downloadCSV(filename: string, rows: string[][]) {
+  const csvContent = rows
+    .map((row) =>
+      row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(","),
+    )
+    .join("\n");
+  const blob = new Blob([`FEFF${csvContent}`], {
+    type: "text/csv;charset=utf-8;",
+  });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 export default function Reports({ session }: Props) {
   const { actor } = useActor();
   const api = actor as any;
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<ReportData | null>(null);
+  const [exportLoading, setExportLoading] = useState<string | null>(null);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: actor stabilizes after init
   useEffect(() => {
@@ -55,13 +75,11 @@ export default function Reports({ session }: Props) {
             api.listProjectCosts(session.companyId),
           ]);
 
-        // Load tasks for all projects
         const taskArrays = await Promise.all(
           (projects as any[]).map((p: any) => api.listTasks(p.id)),
         );
         const allTasks = (taskArrays as any[][]).flat();
 
-        // Cost per project
         const costMap: Record<string, number> = {};
         for (const c of costs as any[]) {
           costMap[c.projectId] = (costMap[c.projectId] || 0) + Number(c.amount);
@@ -129,6 +147,114 @@ export default function Reports({ session }: Props) {
     };
     load();
   }, [session.companyId, actor]);
+
+  const handleExport = async (type: string) => {
+    if (!api || !session.companyId) return;
+    setExportLoading(type);
+    try {
+      if (type === "machines") {
+        const machines: any[] = await api.listMachines(session.companyId);
+        const rows = [
+          ["ID", "Ad", "Tür", "Durum", "Seri No", "Konum", "Notlar"],
+          ...machines.map((m) => [
+            m.id ?? "",
+            m.name ?? "",
+            m.type ?? "",
+            m.status ?? "",
+            m.serialNumber ?? "",
+            m.location ?? "",
+            m.notes ?? "",
+          ]),
+        ];
+        downloadCSV(
+          `makineler_${new Date().toISOString().slice(0, 10)}.csv`,
+          rows,
+        );
+        toast.success("Makineler CSV olarak indirildi.");
+      } else if (type === "failures") {
+        const failures: any[] = await api.listFailures(session.companyId);
+        const rows = [
+          [
+            "ID",
+            "Başlık",
+            "Makine",
+            "Açıklama",
+            "Önem",
+            "Durum",
+            "Bildiren",
+            "Tarih",
+          ],
+          ...failures.map((f) => [
+            f.id ?? "",
+            f.title ?? "",
+            f.machineId ?? "",
+            f.description ?? "",
+            f.severity ?? "",
+            f.status ?? "",
+            f.reportedBy ?? "",
+            f.reportedAt
+              ? new Date(Number(f.reportedAt) / 1_000_000).toLocaleDateString(
+                  "tr-TR",
+                )
+              : "",
+          ]),
+        ];
+        downloadCSV(
+          `arizalar_${new Date().toISOString().slice(0, 10)}.csv`,
+          rows,
+        );
+        toast.success("Arızalar CSV olarak indirildi.");
+      } else if (type === "personnel") {
+        const personnel: any[] = await api.listCompanyPersonnel(
+          session.companyId,
+        );
+        const rows = [
+          ["ID", "Ad", "Rol", "Giriş Kodu", "Davet Kodu"],
+          ...personnel.map((p) => [
+            p.id ?? "",
+            p.name ?? "",
+            p.role ?? "",
+            p.loginCode ?? "",
+            p.inviteCode ?? "",
+          ]),
+        ];
+        downloadCSV(
+          `personel_${new Date().toISOString().slice(0, 10)}.csv`,
+          rows,
+        );
+        toast.success("Personel listesi CSV olarak indirildi.");
+      } else if (type === "costs") {
+        const costs: any[] = await api.listProjectCosts(session.companyId);
+        const projects: any[] = await api.listProjects(session.companyId);
+        const projectMap: Record<string, string> = {};
+        for (const p of projects) projectMap[p.id] = p.name;
+        const rows = [
+          ["ID", "Proje", "Kategori", "Tutar", "Açıklama", "Tarih"],
+          ...costs.map((c) => [
+            c.id ?? "",
+            projectMap[c.projectId] ?? c.projectId ?? "",
+            c.category ?? "",
+            c.amount != null ? String(Number(c.amount)) : "",
+            c.description ?? "",
+            c.createdAt
+              ? new Date(Number(c.createdAt) / 1_000_000).toLocaleDateString(
+                  "tr-TR",
+                )
+              : "",
+          ]),
+        ];
+        downloadCSV(
+          `maliyetler_${new Date().toISOString().slice(0, 10)}.csv`,
+          rows,
+        );
+        toast.success("Maliyetler CSV olarak indirildi.");
+      }
+    } catch {
+      toast.error("Dışa aktarma sırasında hata oluştu.");
+    } finally {
+      setExportLoading(null);
+    }
+  };
 
   const taskPct =
     data && data.taskTotal > 0
@@ -440,6 +566,53 @@ export default function Reports({ session }: Props) {
             )}
           </CardContent>
         </Card>
+      </div>
+
+      {/* CSV Export Section */}
+      <Separator />
+      <div data-ocid="reports.export.section">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-9 h-9 rounded-lg bg-emerald-100 flex items-center justify-center">
+            <Download className="w-4 h-4 text-emerald-700" />
+          </div>
+          <div>
+            <h3
+              className="font-semibold"
+              style={{ fontFamily: "'Bricolage Grotesque', sans-serif" }}
+            >
+              Veri Dışa Aktar
+            </h3>
+            <p className="text-xs text-muted-foreground">
+              Verileri CSV formatında indirin
+            </p>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {(
+            [
+              { key: "machines", label: "Makineler CSV", icon: "🏭" },
+              { key: "failures", label: "Arızalar CSV", icon: "⚠️" },
+              { key: "personnel", label: "Personel CSV", icon: "👥" },
+              { key: "costs", label: "Maliyetler CSV", icon: "💰" },
+            ] as { key: string; label: string; icon: string }[]
+          ).map((item) => (
+            <Button
+              key={item.key}
+              variant="outline"
+              className="h-auto py-3 flex flex-col items-center gap-1.5 text-sm"
+              onClick={() => handleExport(item.key)}
+              disabled={exportLoading === item.key}
+              data-ocid={`reports.export_${item.key}.button`}
+            >
+              {exportLoading === item.key ? (
+                <Loader2 className="w-5 h-5 animate-spin" />
+              ) : (
+                <span className="text-xl">{item.icon}</span>
+              )}
+              <span>{item.label}</span>
+            </Button>
+          ))}
+        </div>
       </div>
     </div>
   );

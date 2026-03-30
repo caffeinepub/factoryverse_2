@@ -1,33 +1,39 @@
-# FactoryVerse
+# FactoryVerse – Sürüm 23
 
 ## Current State
-MVP v20 is live. Modules include: auth, dashboard, machines, projects, tasks, failures, documents, HSE, logistics, notifications, Gantt calendar, QR codes, preventive maintenance plans, personnel performance, machine detail, project costs, personnel detail, project detail, project team assignment, project-linked failures, project status updates.
+MVP kapsamlı modüller içeriyor: kimlik doğrulama, makine, proje, personel, bakım/arıza, görev, doküman, İSG, lojistik, bildirimler, takvim, QR kod, bakım planı, performans, maliyet takibi, personel detay, proje detay, proje ekibi, proje-arıza bağlantısı, proje durum yönetimi, raporlar, tedarikçiler, personel düzenleme/silme, görev düzenleme/silme, makine düzenleme/silme.
 
-Missing: task edit/delete, machine edit/delete, a reporting/KPI page, and failure-maintenance linkage.
+Eksik: Lojistik/İSG/BakımPlanı/Doküman/Maliyet kayıtları için düzenleme ve silme, Ayarlar sayfası.
 
 ## Requested Changes (Diff)
 
 ### Add
-- Backend: `updateTaskStatus`, `deleteTask`, `updateMachine`, `deleteMachine`, `linkFailureMaintenance`, `getFailureMaintenance` endpoints
-- Frontend: New `Reports.tsx` page — KPI cards (total machines/active/breakdown, total failures/open/resolved, task completion rate, shipment status counts, HSE open records, cost totals per project)
-- Frontend: Edit dialog and delete button on Tasks page
-- Frontend: Edit dialog and delete button on Machines page
-- Frontend: On Maintenance (failures) page, when resolving a failure, optionally link to a maintenance plan
-- Sidebar: Add "Raporlar" link with chart icon
+- Backend: `updateShipment`, `deleteShipment` fonksiyonları
+- Backend: `updateHseRecord`, `deleteHseRecord` fonksiyonları  
+- Backend: `updateMaintenancePlan`, `deleteMaintenancePlan` fonksiyonları
+- Backend: `updateDocument` fonksiyonu (deleteDocument zaten var)
+- Backend: `updateProjectCost` fonksiyonu (deleteProjectCost zaten var)
+- Frontend: Lojistik sayfasında düzenle (edit dialog) ve sil butonları
+- Frontend: İSG sayfasında düzenle ve sil butonları
+- Frontend: Bakım Planı sayfasında düzenle ve sil butonları
+- Frontend: Dokümanlar sayfasında düzenle butonu
+- Frontend: Maliyet Takibi sayfasında düzenle butonu
+- Frontend: Yeni Ayarlar sayfası (Settings) – şirket bilgisi, mevcut kullanıcı profili, kodu göster/gizle
 
 ### Modify
-- Tasks page: add edit (title, assignee, dueDate) and delete per task
-- Machines page: add edit (name, type, serialNumber, location, notes) and delete per machine
-- Maintenance (failures) page: add maintenance plan selector when resolving
+- backend.d.ts: yeni fonksiyon imzaları eklenir
+- AppShell: `case "settings"` bağlanır
 
 ### Remove
-- Nothing removed
+- Yok
 
 ## Implementation Plan
-1. Add backend functions: updateTaskStatus (if missing), deleteTask, updateMachine, deleteMachine, linkFailureMaintenance, getFailureMaintenance
-2. Update backend.d.ts with new function signatures
-3. Create Reports.tsx with KPI summary cards and simple stats
-4. Update Tasks.tsx with edit dialog and delete button
-5. Update Machines.tsx with edit dialog and delete button
-6. Update Maintenance.tsx with maintenance plan linkage when resolving
-7. Add Reports route to AppShell.tsx
+1. main.mo sonuna 8 yeni backend fonksiyonu ekle
+2. backend.d.ts'e yeni imzalar ekle
+3. Logistics.tsx: her satıra edit dialog + delete butonu ekle
+4. HSE.tsx: her satıra edit dialog + delete butonu ekle
+5. MaintenancePlan.tsx: her plana edit dialog + delete butonu ekle
+6. Documents.tsx: her dokümana edit dialog ekle
+7. ProjectCosts.tsx: her maliyete edit dialog ekle
+8. Settings.tsx sayfası oluştur: şirket adı/modu, personel adı/rolü/kodu göster, değiştirme formu
+9. AppShell.tsx: settings case ekle

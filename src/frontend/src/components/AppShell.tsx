@@ -20,10 +20,13 @@ import ProjectCosts from "@/pages/ProjectCosts";
 import ProjectDetail from "@/pages/ProjectDetail";
 import Projects from "@/pages/Projects";
 import Reports from "@/pages/Reports";
+import SettingsPage from "@/pages/Settings";
+import Suppliers from "@/pages/Suppliers";
 import Tasks from "@/pages/Tasks";
 import {
   BarChart3,
   Bell,
+  Building2,
   CalendarDays,
   ClipboardCheck,
   ClipboardList,
@@ -73,6 +76,7 @@ const navItems = [
   { id: "documents" as Page, label: "Dokümanlar", icon: FileText },
   { id: "hse" as Page, label: "İSG", icon: ShieldAlert },
   { id: "logistics" as Page, label: "Lojistik", icon: Truck },
+  { id: "suppliers" as Page, label: "Tedarikçiler", icon: Building2 },
   { id: "notifications" as Page, label: "Bildirimler", icon: Bell },
   { id: "calendar" as Page, label: "Takvim", icon: CalendarDays },
   { id: "personnel" as Page, label: "Personel", icon: Users, adminOnly: true },
@@ -134,6 +138,7 @@ export default function AppShell({
     "personnel-detail": "Personel Detayı",
     "project-detail": "Proje Detayı",
     reports: "Raporlar & İstatistikler",
+    suppliers: "Tedarikçiler",
     landing: "Ana Sayfa",
     login: "Giriş",
     register: "Kayıt",
@@ -212,10 +217,14 @@ export default function AppShell({
         return <Reports session={session} />;
       case "personnel":
         return isAdmin ? (
-          <Personnel />
+          <Personnel session={session} />
         ) : (
           <Dashboard session={session} navigate={navigate} />
         );
+      case "settings":
+        return <SettingsPage session={session} />;
+      case "suppliers":
+        return <Suppliers session={session} />;
       default:
         return <Dashboard session={session} navigate={navigate} />;
     }

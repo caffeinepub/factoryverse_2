@@ -86,6 +86,9 @@ export default function Tasks({ session }: Props) {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [editStatus, setEditStatus] = useState("");
+  const [editTitle, setEditTitle] = useState("");
+  const [editAssigneeId, setEditAssigneeId] = useState("");
+  const [editDueDate, setEditDueDate] = useState("");
   const [editSubmitting, setEditSubmitting] = useState(false);
 
   const [form, setForm] = useState({
@@ -104,10 +107,8 @@ export default function Tasks({ session }: Props) {
       const projs: Project[] = await api.listProjects(session.companyId);
       setProjects(projs);
 
-      const taskArrays = await Promise.all(
-        projs.map((p) => api.listTasks(p.id) as Promise<Task[]>),
-      );
-      setTasks(taskArrays.flat());
+      const allTasks: Task[] = await api.listAllTasks(session.companyId);
+      setTasks(allTasks);
     } catch {
       toast.error("Görevler yüklenirken hata oluştu.");
     } finally {
@@ -168,6 +169,9 @@ export default function Tasks({ session }: Props) {
   const handleOpenEdit = (task: Task) => {
     setEditingTask(task);
     setEditStatus(task.status);
+    setEditTitle(task.title);
+    setEditAssigneeId(task.assigneeId || "");
+    setEditDueDate(task.dueDate || "");
     setEditDialogOpen(true);
   };
 
@@ -175,10 +179,24 @@ export default function Tasks({ session }: Props) {
     if (!editingTask || !api) return;
     setEditSubmitting(true);
     try {
+      await api.updateTask(
+        BigInt(editingTask.id),
+        editTitle,
+        editAssigneeId,
+        editDueDate,
+      );
       await api.updateTaskStatus(String(editingTask.id), editStatus);
       setTasks((prev) =>
         prev.map((t) =>
-          t.id === editingTask.id ? { ...t, status: editStatus } : t,
+          t.id === editingTask.id
+            ? {
+                ...t,
+                title: editTitle,
+                assigneeId: editAssigneeId,
+                dueDate: editDueDate,
+                status: editStatus,
+              }
+            : t,
         ),
       );
       toast.success("Görev güncellendi.");
@@ -328,7 +346,7 @@ export default function Tasks({ session }: Props) {
         </Dialog>
       </div>
 
-      {/* Edit Dialog */}
+      {/* Full Edit Dialog */}
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
         <DialogContent
           aria-describedby="edit-task-desc"
@@ -341,29 +359,41 @@ export default function Tasks({ session }: Props) {
               Görevi Düzenle
             </DialogTitle>
             <DialogDescription id="edit-task-desc">
-              {editingTask?.title} — durum güncelleme
+              Görev bilgilerini güncelleyin.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
-            <div className="bg-muted/40 rounded-lg p-3 space-y-1">
-              <p className="text-xs text-muted-foreground">Görev</p>
-              <p className="font-medium">{editingTask?.title}</p>
-              <p className="text-xs text-muted-foreground">
-                Proje:{" "}
-                {editingTask
-                  ? (projectMap[editingTask.projectId] ?? editingTask.projectId)
-                  : "—"}
-              </p>
-              {editingTask?.dueDate && (
-                <p className="text-xs text-muted-foreground">
-                  Son Tarih: {editingTask.dueDate}
-                </p>
-              )}
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label>Başlık</Label>
+              <Input
+                value={editTitle}
+                onChange={(e) => setEditTitle(e.target.value)}
+                placeholder="Görev başlığı"
+                data-ocid="tasks.edit.title.input"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Atanan Personel</Label>
+              <Input
+                value={editAssigneeId}
+                onChange={(e) => setEditAssigneeId(e.target.value)}
+                placeholder="Personel ID veya adı"
+                data-ocid="tasks.edit.assignee.input"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Son Tarih</Label>
+              <Input
+                type="date"
+                value={editDueDate}
+                onChange={(e) => setEditDueDate(e.target.value)}
+                data-ocid="tasks.edit.due_date.input"
+              />
             </div>
             <div className="space-y-1.5">
               <Label>Durum</Label>
               <Select value={editStatus} onValueChange={setEditStatus}>
-                <SelectTrigger data-ocid="tasks.edit.select">
+                <SelectTrigger data-ocid="tasks.edit.status.select">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -413,26 +443,24 @@ export default function Tasks({ session }: Props) {
       </div>
 
       {/* Filter */}
-      {projects.length > 1 && (
-        <div className="flex items-center gap-2">
-          <Label className="text-sm text-muted-foreground whitespace-nowrap">
-            Proje:
-          </Label>
-          <Select value={filterProject} onValueChange={setFilterProject}>
-            <SelectTrigger className="w-52" data-ocid="tasks.filter.select">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Tümü</SelectItem>
-              {projects.map((p) => (
-                <SelectItem key={p.id} value={p.id}>
-                  {p.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      )}
+      <div className="flex items-center gap-2">
+        <Label className="text-sm text-muted-foreground whitespace-nowrap">
+          Proje:
+        </Label>
+        <Select value={filterProject} onValueChange={setFilterProject}>
+          <SelectTrigger className="w-52" data-ocid="tasks.filter.select">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Tüm Görevler</SelectItem>
+            {projects.map((p) => (
+              <SelectItem key={p.id} value={p.id}>
+                {p.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
 
       {loading ? (
         <div
@@ -463,7 +491,7 @@ export default function Tasks({ session }: Props) {
                   Son Tarih
                 </TableHead>
                 <TableHead>Durum</TableHead>
-                <TableHead className="w-28">İşlemler</TableHead>
+                <TableHead className="w-32">İşlemler</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>

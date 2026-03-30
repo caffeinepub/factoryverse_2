@@ -27,7 +27,7 @@ import {
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { useActor } from "@/hooks/useActor";
-import { DollarSign, Loader2, Plus, Trash2 } from "lucide-react";
+import { DollarSign, Loader2, Pencil, Plus, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -64,16 +64,15 @@ const categoryColor: Record<string, string> = {
   Diğer: "bg-gray-100 text-gray-600",
 };
 
-const currencySymbol: Record<string, string> = {
-  TRY: "₺",
-  USD: "$",
-  EUR: "€",
-};
+const currencySymbol: Record<string, string> = { TRY: "₺", USD: "$", EUR: "€" };
 
 function formatAmount(amount: number, currency: string) {
   const sym = currencySymbol[currency] ?? currency;
   return `${sym}${amount.toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
+
+const isAdmin = (role: string) =>
+  role === "admin" || role === "companyAdmin" || role === "manager";
 
 export default function ProjectCosts({ session }: { session: Session }) {
   const { actor } = useActor();
@@ -95,6 +94,18 @@ export default function ProjectCosts({ session }: { session: Session }) {
     currency: "TRY",
     description: "",
   });
+
+  // Edit state
+  const [editOpen, setEditOpen] = useState(false);
+  const [editTarget, setEditTarget] = useState<ProjectCost | null>(null);
+  const [editForm, setEditForm] = useState({
+    title: "",
+    category: "Malzeme",
+    amount: "",
+    currency: "TRY",
+    description: "",
+  });
+  const [editSaving, setEditSaving] = useState(false);
 
   const loadData = async () => {
     if (!api) return;
@@ -170,6 +181,10 @@ export default function ProjectCosts({ session }: { session: Session }) {
   };
 
   const handleDelete = async (id: string) => {
+    if (
+      !window.confirm("Bu maliyet kaydını silmek istediğinizden emin misiniz?")
+    )
+      return;
     setDeleting(id);
     try {
       await api.deleteProjectCost(id);
@@ -182,10 +197,54 @@ export default function ProjectCosts({ session }: { session: Session }) {
     }
   };
 
+  const openEdit = (cost: ProjectCost) => {
+    setEditTarget(cost);
+    setEditForm({
+      title: cost.title,
+      category: cost.category,
+      amount: String(cost.amount),
+      currency: cost.currency,
+      description: cost.description ?? "",
+    });
+    setEditOpen(true);
+  };
+
+  const handleEdit = async () => {
+    if (!actor || !editTarget) return;
+    if (!editForm.title || !editForm.amount) {
+      toast.error("Başlık ve tutar zorunludur.");
+      return;
+    }
+    const amt = Number.parseFloat(editForm.amount);
+    if (Number.isNaN(amt) || amt <= 0) {
+      toast.error("Geçerli bir tutar girin.");
+      return;
+    }
+    setEditSaving(true);
+    try {
+      await api.updateProjectCost(
+        editTarget.id,
+        editForm.title,
+        editForm.category,
+        amt,
+        editForm.currency,
+        editForm.description,
+      );
+      toast.success("Maliyet güncellendi.");
+      setEditOpen(false);
+      setEditTarget(null);
+      loadData();
+    } catch {
+      toast.error("Güncelleme başarısız.");
+    } finally {
+      setEditSaving(false);
+    }
+  };
+
   const projectName = (id: string) =>
     projects.find((p) => p.id === id)?.name ?? id;
-
   const totalAll = sum();
+  const canEdit = isAdmin(session.role);
 
   const summaryCards = [
     {
@@ -212,7 +271,6 @@ export default function ProjectCosts({ session }: { session: Session }) {
 
   return (
     <div className="space-y-6">
-      {/* Summary cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {summaryCards.map((card) => (
           <div
@@ -234,7 +292,6 @@ export default function ProjectCosts({ session }: { session: Session }) {
         ))}
       </div>
 
-      {/* Controls row */}
       <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
         <Select value={selectedProject} onValueChange={setSelectedProject}>
           <SelectTrigger
@@ -262,7 +319,6 @@ export default function ProjectCosts({ session }: { session: Session }) {
         </Button>
       </div>
 
-      {/* Table */}
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2">
@@ -296,7 +352,9 @@ export default function ProjectCosts({ session }: { session: Session }) {
                     <TableHead>Tutar</TableHead>
                     <TableHead>Açıklama</TableHead>
                     <TableHead>Tarih</TableHead>
-                    <TableHead className="w-10">Sil</TableHead>
+                    <TableHead className={canEdit ? "w-20" : "w-10"}>
+                      İşlem
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -313,10 +371,7 @@ export default function ProjectCosts({ session }: { session: Session }) {
                       </TableCell>
                       <TableCell>
                         <span
-                          className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${
-                            categoryColor[cost.category] ??
-                            "bg-gray-100 text-gray-600"
-                          }`}
+                          className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${categoryColor[cost.category] ?? "bg-gray-100 text-gray-600"}`}
                         >
                           {cost.category}
                         </span>
@@ -333,20 +388,33 @@ export default function ProjectCosts({ session }: { session: Session }) {
                         ).toLocaleDateString("tr-TR")}
                       </TableCell>
                       <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="text-red-500 hover:text-red-600 hover:bg-red-50"
-                          onClick={() => handleDelete(cost.id)}
-                          disabled={deleting === cost.id}
-                          data-ocid={`project-costs.delete_button.${idx + 1}`}
-                        >
-                          {deleting === cost.id ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                          ) : (
-                            <Trash2 className="w-4 h-4" />
+                        <div className="flex items-center gap-1">
+                          {canEdit && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="text-muted-foreground hover:text-primary"
+                              onClick={() => openEdit(cost)}
+                              data-ocid={`project-costs.edit_button.${idx + 1}`}
+                            >
+                              <Pencil className="w-4 h-4" />
+                            </Button>
                           )}
-                        </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="text-red-500 hover:text-red-600 hover:bg-red-50"
+                            onClick={() => handleDelete(cost.id)}
+                            disabled={deleting === cost.id}
+                            data-ocid={`project-costs.delete_button.${idx + 1}`}
+                          >
+                            {deleting === cost.id ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <Trash2 className="w-4 h-4" />
+                            )}
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -475,6 +543,114 @@ export default function ProjectCosts({ session }: { session: Session }) {
               data-ocid="project-costs.submit_button"
             >
               {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Kaydet
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit dialog */}
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent
+          className="sm:max-w-md"
+          data-ocid="project-costs.edit_dialog"
+        >
+          <DialogHeader>
+            <DialogTitle
+              style={{ fontFamily: "'Bricolage Grotesque', sans-serif" }}
+            >
+              Maliyeti Düzenle
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label>Başlık *</Label>
+              <Input
+                value={editForm.title}
+                onChange={(e) =>
+                  setEditForm((f) => ({ ...f, title: e.target.value }))
+                }
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>Kategori</Label>
+                <Select
+                  value={editForm.category}
+                  onValueChange={(v) =>
+                    setEditForm((f) => ({ ...f, category: v }))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CATEGORIES.map((c) => (
+                      <SelectItem key={c} value={c}>
+                        {c}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Para Birimi</Label>
+                <Select
+                  value={editForm.currency}
+                  onValueChange={(v) =>
+                    setEditForm((f) => ({ ...f, currency: v }))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CURRENCIES.map((c) => (
+                      <SelectItem key={c} value={c}>
+                        {c}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Tutar *</Label>
+              <Input
+                type="number"
+                min={0}
+                step={0.01}
+                value={editForm.amount}
+                onChange={(e) =>
+                  setEditForm((f) => ({ ...f, amount: e.target.value }))
+                }
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Açıklama</Label>
+              <Textarea
+                rows={3}
+                value={editForm.description}
+                onChange={(e) =>
+                  setEditForm((f) => ({ ...f, description: e.target.value }))
+                }
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setEditOpen(false)}
+              data-ocid="project-costs.edit_cancel_button"
+            >
+              İptal
+            </Button>
+            <Button
+              onClick={handleEdit}
+              disabled={editSaving}
+              data-ocid="project-costs.edit_save_button"
+            >
+              {editSaving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               Kaydet
             </Button>
           </DialogFooter>

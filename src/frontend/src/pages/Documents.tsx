@@ -30,7 +30,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useActor } from "@/hooks/useActor";
-import { FileText, Loader2, Plus, Trash2 } from "lucide-react";
+import { FileText, Loader2, Pencil, Plus, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -48,6 +48,9 @@ function formatDate(ts: bigint): string {
   return new Date(Number(ts) / 1_000_000).toLocaleDateString("tr-TR");
 }
 
+const isAdmin = (role: string) =>
+  role === "admin" || role === "companyAdmin" || role === "manager";
+
 export default function Documents({ session }: Props) {
   const { actor } = useActor();
   const [docs, setDocs] = useState<Document[]>([]);
@@ -62,7 +65,16 @@ export default function Documents({ session }: Props) {
     category: "teknik",
   });
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: actor stabilizes after init
+  // Edit state
+  const [editOpen, setEditOpen] = useState(false);
+  const [editTarget, setEditTarget] = useState<Document | null>(null);
+  const [editForm, setEditForm] = useState({
+    title: "",
+    fileName: "",
+    category: "teknik",
+  });
+  const [editSaving, setEditSaving] = useState(false);
+
   useEffect(() => {
     if (!actor || !session.companyId) {
       setLoading(false);
@@ -74,6 +86,14 @@ export default function Documents({ session }: Props) {
       .catch(() => toast.error("Dokümanlar yüklenemedi"))
       .finally(() => setLoading(false));
   }, [session.companyId, actor]);
+
+  const reload = async () => {
+    if (!actor) return;
+    const res: Document[] = await (actor as any).listDocuments(
+      session.companyId,
+    );
+    setDocs(res);
+  };
 
   const handleAdd = async () => {
     if (!actor || !form.title.trim() || !form.fileName.trim()) {
@@ -94,8 +114,7 @@ export default function Documents({ session }: Props) {
         form.category,
         uploader,
       );
-      const updated: Document[] = await a.listDocuments(session.companyId);
-      setDocs(updated);
+      await reload();
       setForm({ title: "", fileName: "", category: "teknik" });
       setDialogOpen(false);
       toast.success("Doküman eklendi");
@@ -119,6 +138,43 @@ export default function Documents({ session }: Props) {
       setDeletingId(null);
     }
   };
+
+  const openEdit = (doc: Document) => {
+    setEditTarget(doc);
+    setEditForm({
+      title: doc.title,
+      fileName: doc.fileName,
+      category: doc.category,
+    });
+    setEditOpen(true);
+  };
+
+  const handleEdit = async () => {
+    if (!actor || !editTarget) return;
+    if (!editForm.title.trim() || !editForm.fileName.trim()) {
+      toast.error("Başlık ve dosya adı zorunludur");
+      return;
+    }
+    setEditSaving(true);
+    try {
+      await (actor as any).updateDocument(
+        editTarget.id,
+        editForm.title.trim(),
+        editForm.fileName.trim(),
+        editForm.category,
+      );
+      await reload();
+      setEditOpen(false);
+      setEditTarget(null);
+      toast.success("Doküman güncellendi");
+    } catch {
+      toast.error("Güncelleme başarısız");
+    } finally {
+      setEditSaving(false);
+    }
+  };
+
+  const canEdit = isAdmin(session.role);
 
   return (
     <div className="space-y-6">
@@ -156,7 +212,7 @@ export default function Documents({ session }: Props) {
                   placeholder="Doküman başlığı"
                   value={form.title}
                   onChange={(e) =>
-                    setForm((prev) => ({ ...prev, title: e.target.value }))
+                    setForm((p) => ({ ...p, title: e.target.value }))
                   }
                   data-ocid="documents.input"
                 />
@@ -168,18 +224,15 @@ export default function Documents({ session }: Props) {
                   placeholder="örn. sozlesme_2026.pdf"
                   value={form.fileName}
                   onChange={(e) =>
-                    setForm((prev) => ({ ...prev, fileName: e.target.value }))
+                    setForm((p) => ({ ...p, fileName: e.target.value }))
                   }
-                  data-ocid="documents.textarea"
                 />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="doc-category">Kategori</Label>
                 <Select
                   value={form.category}
-                  onValueChange={(v) =>
-                    setForm((prev) => ({ ...prev, category: v }))
-                  }
+                  onValueChange={(v) => setForm((p) => ({ ...p, category: v }))}
                 >
                   <SelectTrigger id="doc-category" data-ocid="documents.select">
                     <SelectValue placeholder="Kategori seç" />
@@ -247,7 +300,9 @@ export default function Documents({ session }: Props) {
                     <TableHead>Kategori</TableHead>
                     <TableHead>Yükleyen</TableHead>
                     <TableHead>Tarih</TableHead>
-                    <TableHead className="w-16">İşlemler</TableHead>
+                    <TableHead className={canEdit ? "w-24" : "w-16"}>
+                      İşlemler
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -279,20 +334,33 @@ export default function Documents({ session }: Props) {
                           {formatDate(doc.createdAt)}
                         </TableCell>
                         <TableCell>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="text-red-500 hover:text-red-700 hover:bg-red-50"
-                            onClick={() => handleDelete(doc.id)}
-                            disabled={deletingId === doc.id}
-                            data-ocid={`documents.delete_button.${idx + 1}`}
-                          >
-                            {deletingId === doc.id ? (
-                              <Loader2 className="w-4 h-4 animate-spin" />
-                            ) : (
-                              <Trash2 className="w-4 h-4" />
+                          <div className="flex items-center gap-1">
+                            {canEdit && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="text-muted-foreground hover:text-primary"
+                                onClick={() => openEdit(doc)}
+                                data-ocid={`documents.edit_button.${idx + 1}`}
+                              >
+                                <Pencil className="w-4 h-4" />
+                              </Button>
                             )}
-                          </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                              onClick={() => handleDelete(doc.id)}
+                              disabled={deletingId === doc.id}
+                              data-ocid={`documents.delete_button.${idx + 1}`}
+                            >
+                              {deletingId === doc.id ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : (
+                                <Trash2 className="w-4 h-4" />
+                              )}
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     );
@@ -303,6 +371,75 @@ export default function Documents({ session }: Props) {
           )}
         </CardContent>
       </Card>
+
+      {/* Edit Dialog */}
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent data-ocid="documents.edit_dialog">
+          <DialogHeader>
+            <DialogTitle>Dokümanı Düzenle</DialogTitle>
+            <DialogDescription>
+              Doküman bilgilerini güncelleyin
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label>Başlık</Label>
+              <Input
+                value={editForm.title}
+                onChange={(e) =>
+                  setEditForm((p) => ({ ...p, title: e.target.value }))
+                }
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Dosya Adı</Label>
+              <Input
+                value={editForm.fileName}
+                onChange={(e) =>
+                  setEditForm((p) => ({ ...p, fileName: e.target.value }))
+                }
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Kategori</Label>
+              <Select
+                value={editForm.category}
+                onValueChange={(v) =>
+                  setEditForm((p) => ({ ...p, category: v }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="teknik">Teknik</SelectItem>
+                  <SelectItem value="sözleşme">Sözleşme</SelectItem>
+                  <SelectItem value="diğer">Diğer</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setEditOpen(false)}
+              data-ocid="documents.edit_cancel_button"
+            >
+              İptal
+            </Button>
+            <Button
+              onClick={handleEdit}
+              disabled={editSaving}
+              data-ocid="documents.edit_save_button"
+            >
+              {editSaving ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : null}
+              Kaydet
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

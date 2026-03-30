@@ -210,4 +210,39 @@ export interface backendInterface {
     updateProjectStatus(projectId: string, status: string): Promise<void>;
     updateShipmentStatus(shipmentId: string, status: string): Promise<void>;
     updateTaskStatus(taskId: bigint, status: string): Promise<void>;
+    addSupplier(companyId: string, name: string, category: string, contactName: string, contactPhone: string, contactEmail: string, address: string, notes: string): Promise<string>;
+    deletePersonnel(personnelId: string): Promise<void>;
+    deleteSupplier(supplierId: string): Promise<void>;
+    listAllTasks(companyId: string): Promise<Array<Task>>;
+    listSuppliers(companyId: string): Promise<Array<Supplier>>;
+    resolveFailure(failureId: string, resolutionNote: string): Promise<void>;
+    updatePersonnel(personnelId: string, name: string, role: string): Promise<void>;
+    updateSupplier(supplierId: string, name: string, category: string, contactName: string, contactPhone: string, contactEmail: string, address: string, notes: string): Promise<void>;
+    updateSupplierStatus(supplierId: string, status: string): Promise<void>;
+    updateTask(taskId: bigint, title: string, assigneeId: string, dueDate: string): Promise<void>;
+    // Sürüm 23
+    updateShipment(shipmentId: string, title: string, machineId: string, fromLocation: string, toLocation: string, carrier: string, shipDate: string, estimatedDelivery: string, notes: string): Promise<void>;
+    deleteShipment(shipmentId: string): Promise<void>;
+    updateHseRecord(hseId: string, hseType: string, title: string, description: string, severity: string): Promise<void>;
+    deleteHseRecord(hseId: string): Promise<void>;
+    updateMaintenancePlan(planId: string, title: string, description: string, frequency: string, nextDate: string, assignedTo: string): Promise<void>;
+    deleteMaintenancePlan(planId: string): Promise<void>;
+    updateDocument(documentId: string, title: string, fileName: string, category: string): Promise<void>;
+    updateProjectCost(costId: string, title: string, category: string, amount: number, currency: string, description: string): Promise<void>;
+}
+
+// Sürüm 22 additions
+export type SupplierId = string;
+export interface Supplier {
+    id: SupplierId;
+    companyId: CompanyId;
+    name: string;
+    category: string;
+    contactName: string;
+    contactPhone: string;
+    contactEmail: string;
+    address: string;
+    notes: string;
+    status: string;
+    createdAt: Timestamp;
 }

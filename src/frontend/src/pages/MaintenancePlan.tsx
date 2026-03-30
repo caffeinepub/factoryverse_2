@@ -36,7 +36,14 @@ import {
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { useActor } from "@/hooks/useActor";
-import { ChevronDown, ClipboardCheck, Loader2, Plus } from "lucide-react";
+import {
+  ChevronDown,
+  ClipboardCheck,
+  Loader2,
+  Pencil,
+  Plus,
+  Trash2,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -73,6 +80,9 @@ const emptyForm = {
   assignedTo: "",
 };
 
+const isAdmin = (role: string) =>
+  role === "admin" || role === "companyAdmin" || role === "manager";
+
 export default function MaintenancePlanPage({ session }: Props) {
   const { actor } = useActor();
   const api = actor as any;
@@ -82,11 +92,28 @@ export default function MaintenancePlanPage({ session }: Props) {
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState(emptyForm);
 
+  // Edit state
+  const [editOpen, setEditOpen] = useState(false);
+  const [editTarget, setEditTarget] = useState<MaintenancePlan | null>(null);
+  const [editForm, setEditForm] = useState({
+    title: "",
+    description: "",
+    frequency: "monthly",
+    nextDate: "",
+    assignedTo: "",
+  });
+  const [editSaving, setEditSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
   const loadPlans = async () => {
     if (!actor) return;
     try {
       const data = await api.listMaintenancePlans(session.companyId);
-      setPlans(data.sort((a, b) => (a.nextDate > b.nextDate ? 1 : -1)));
+      setPlans(
+        data.sort((a: MaintenancePlan, b: MaintenancePlan) =>
+          a.nextDate > b.nextDate ? 1 : -1,
+        ),
+      );
     } catch {
       toast.error("Planlar yüklenemedi.");
     } finally {
@@ -138,9 +165,131 @@ export default function MaintenancePlanPage({ session }: Props) {
     }
   };
 
+  const openEdit = (plan: MaintenancePlan) => {
+    setEditTarget(plan);
+    setEditForm({
+      title: plan.title,
+      description: plan.description ?? "",
+      frequency: plan.frequency,
+      nextDate: plan.nextDate,
+      assignedTo: plan.assignedTo ?? "",
+    });
+    setEditOpen(true);
+  };
+
+  const handleEdit = async () => {
+    if (!actor || !editTarget) return;
+    if (!editForm.title.trim() || !editForm.nextDate) {
+      toast.error("Başlık ve tarih zorunludur.");
+      return;
+    }
+    setEditSaving(true);
+    try {
+      await api.updateMaintenancePlan(
+        editTarget.id,
+        editForm.title,
+        editForm.description,
+        editForm.frequency,
+        editForm.nextDate,
+        editForm.assignedTo,
+      );
+      toast.success("Plan güncellendi.");
+      setEditOpen(false);
+      setEditTarget(null);
+      loadPlans();
+    } catch {
+      toast.error("Güncelleme başarısız.");
+    } finally {
+      setEditSaving(false);
+    }
+  };
+
+  const handleDelete = async (plan: MaintenancePlan) => {
+    if (
+      !window.confirm(
+        `"${plan.title}" planını silmek istediğinizden emin misiniz?`,
+      )
+    )
+      return;
+    setDeletingId(plan.id);
+    try {
+      await api.deleteMaintenancePlan(plan.id);
+      setPlans((prev) => prev.filter((p) => p.id !== plan.id));
+      toast.success("Plan silindi.");
+    } catch {
+      toast.error("Silinemedi.");
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  const canEdit = isAdmin(session.role);
+
+  const planFormFields = (
+    vals: typeof editForm,
+    set: (fn: (p: typeof editForm) => typeof editForm) => void,
+  ) => (
+    <div className="space-y-4 py-2">
+      <div className="space-y-1.5">
+        <Label>Başlık *</Label>
+        <Input
+          placeholder="Örn: Aylık yağlama bakımı"
+          maxLength={80}
+          value={vals.title}
+          onChange={(e) => set((p) => ({ ...p, title: e.target.value }))}
+        />
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-1.5">
+          <Label>Periyot</Label>
+          <Select
+            value={vals.frequency}
+            onValueChange={(v) => set((p) => ({ ...p, frequency: v }))}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="daily">Günlük</SelectItem>
+              <SelectItem value="weekly">Haftalık</SelectItem>
+              <SelectItem value="monthly">Aylık</SelectItem>
+              <SelectItem value="yearly">Yıllık</SelectItem>
+              <SelectItem value="custom">Özel</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1.5">
+          <Label>Sonraki Tarih *</Label>
+          <Input
+            type="date"
+            value={vals.nextDate}
+            onChange={(e) => set((p) => ({ ...p, nextDate: e.target.value }))}
+          />
+        </div>
+      </div>
+      <div className="space-y-1.5">
+        <Label>Atanan Personel</Label>
+        <Input
+          placeholder="Personel adı veya ID"
+          value={vals.assignedTo}
+          onChange={(e) => set((p) => ({ ...p, assignedTo: e.target.value }))}
+        />
+      </div>
+      <div className="space-y-1.5">
+        <Label>Açıklama</Label>
+        <Textarea
+          placeholder="Yapılacak işlemler..."
+          maxLength={300}
+          rows={3}
+          value={vals.description}
+          onChange={(e) => set((p) => ({ ...p, description: e.target.value }))}
+        />
+      </div>
+    </div>
+  );
+
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h2
@@ -156,7 +305,8 @@ export default function MaintenancePlanPage({ session }: Props) {
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
             <Button className="gap-2">
-              <Plus className="w-4 h-4" /> Yeni Plan
+              <Plus className="w-4 h-4" />
+              Yeni Plan
             </Button>
           </DialogTrigger>
           <DialogContent aria-describedby="plan-dialog-desc">
@@ -252,7 +402,6 @@ export default function MaintenancePlanPage({ session }: Props) {
         </Dialog>
       </div>
 
-      {/* Content */}
       {loading ? (
         <div className="flex items-center justify-center py-20">
           <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
@@ -265,7 +414,8 @@ export default function MaintenancePlanPage({ session }: Props) {
               Henüz bakım planı yok.
             </p>
             <Button size="sm" onClick={() => setOpen(true)} className="gap-1">
-              <Plus className="w-4 h-4" /> İlk planı ekle
+              <Plus className="w-4 h-4" />
+              İlk planı ekle
             </Button>
           </CardContent>
         </Card>
@@ -281,7 +431,7 @@ export default function MaintenancePlanPage({ session }: Props) {
                     <TableHead>Sonraki Tarih</TableHead>
                     <TableHead>Atanan</TableHead>
                     <TableHead>Durum</TableHead>
-                    <TableHead className="w-10" />
+                    <TableHead className={canEdit ? "w-28" : "w-10"} />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -329,39 +479,70 @@ export default function MaintenancePlanPage({ session }: Props) {
                           </span>
                         </TableCell>
                         <TableCell>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8"
-                              >
-                                <ChevronDown className="w-4 h-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem
-                                onClick={() => updateStatus(plan.id, "active")}
-                              >
-                                Aktif
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={() =>
-                                  updateStatus(plan.id, "completed")
-                                }
-                              >
-                                Tamamlandı
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={() =>
-                                  updateStatus(plan.id, "cancelled")
-                                }
-                                className="text-red-600"
-                              >
-                                İptal
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
+                          <div className="flex items-center gap-1 justify-end">
+                            {canEdit && (
+                              <>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 text-muted-foreground hover:text-primary"
+                                  onClick={() => openEdit(plan)}
+                                  data-ocid="maintenance-plan.edit_button"
+                                >
+                                  <Pencil className="w-3.5 h-3.5" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 text-red-400 hover:text-red-600 hover:bg-red-50"
+                                  onClick={() => handleDelete(plan)}
+                                  disabled={deletingId === plan.id}
+                                  data-ocid="maintenance-plan.delete_button"
+                                >
+                                  {deletingId === plan.id ? (
+                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                  ) : (
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  )}
+                                </Button>
+                              </>
+                            )}
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8"
+                                >
+                                  <ChevronDown className="w-4 h-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem
+                                  onClick={() =>
+                                    updateStatus(plan.id, "active")
+                                  }
+                                >
+                                  Aktif
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() =>
+                                    updateStatus(plan.id, "completed")
+                                  }
+                                >
+                                  Tamamlandı
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() =>
+                                    updateStatus(plan.id, "cancelled")
+                                  }
+                                  className="text-red-600"
+                                >
+                                  İptal
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
                         </TableCell>
                       </TableRow>
                     );
@@ -372,6 +553,28 @@ export default function MaintenancePlanPage({ session }: Props) {
           </CardContent>
         </Card>
       )}
+
+      {/* Edit Dialog */}
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent aria-describedby="edit-plan-desc">
+          <DialogHeader>
+            <DialogTitle>Bakım Planını Düzenle</DialogTitle>
+            <DialogDescription id="edit-plan-desc">
+              Plan bilgilerini güncelleyin.
+            </DialogDescription>
+          </DialogHeader>
+          {planFormFields(editForm, setEditForm)}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditOpen(false)}>
+              İptal
+            </Button>
+            <Button onClick={handleEdit} disabled={editSaving}>
+              {editSaving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Kaydet
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

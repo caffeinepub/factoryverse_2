@@ -31,7 +31,7 @@ import {
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { useActor } from "@/hooks/useActor";
-import { Loader2, Plus, ShieldAlert } from "lucide-react";
+import { Loader2, Pencil, Plus, ShieldAlert, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -55,6 +55,17 @@ function formatDate(ts: bigint): string {
   return new Date(Number(ts) / 1_000_000).toLocaleDateString("tr-TR");
 }
 
+const isAdmin = (role: string) =>
+  role === "admin" || role === "companyAdmin" || role === "manager";
+
+const emptyForm = {
+  hseType: "kaza",
+  title: "",
+  description: "",
+  severity: "orta",
+  reportedBy: "",
+};
+
 export default function HSE({ session }: Props) {
   const { actor } = useActor();
   const [records, setRecords] = useState<HseRecord[]>([]);
@@ -62,16 +73,20 @@ export default function HSE({ session }: Props) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [togglingId, setTogglingId] = useState<string | null>(null);
+  const [form, setForm] = useState(emptyForm);
 
-  const [form, setForm] = useState({
+  // Edit state
+  const [editOpen, setEditOpen] = useState(false);
+  const [editTarget, setEditTarget] = useState<HseRecord | null>(null);
+  const [editForm, setEditForm] = useState({
     hseType: "kaza",
     title: "",
     description: "",
     severity: "orta",
-    reportedBy: "",
   });
+  const [editSaving, setEditSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: actor stabilizes after init
   useEffect(() => {
     if (!actor || !session.companyId) {
       setLoading(false);
@@ -83,6 +98,14 @@ export default function HSE({ session }: Props) {
       .catch(() => toast.error("İSG kayıtları yüklenemedi"))
       .finally(() => setLoading(false));
   }, [session.companyId, actor]);
+
+  const reload = async () => {
+    if (!actor) return;
+    const res: HseRecord[] = await (actor as any).listHseRecords(
+      session.companyId,
+    );
+    setRecords(res);
+  };
 
   const handleAdd = async () => {
     if (!actor || !form.title.trim()) {
@@ -106,15 +129,8 @@ export default function HSE({ session }: Props) {
         form.severity,
         reporter,
       );
-      const updated: HseRecord[] = await a.listHseRecords(session.companyId);
-      setRecords(updated);
-      setForm({
-        hseType: "kaza",
-        title: "",
-        description: "",
-        severity: "orta",
-        reportedBy: "",
-      });
+      await reload();
+      setForm(emptyForm);
       setDialogOpen(false);
       toast.success("İSG kaydı eklendi");
     } catch {
@@ -141,7 +157,64 @@ export default function HSE({ session }: Props) {
     }
   };
 
+  const openEdit = (rec: HseRecord) => {
+    setEditTarget(rec);
+    setEditForm({
+      hseType: rec.hseType,
+      title: rec.title,
+      description: rec.description ?? "",
+      severity: rec.severity,
+    });
+    setEditOpen(true);
+  };
+
+  const handleEdit = async () => {
+    if (!actor || !editTarget) return;
+    if (!editForm.title.trim()) {
+      toast.error("Başlık zorunludur");
+      return;
+    }
+    setEditSaving(true);
+    try {
+      await (actor as any).updateHseRecord(
+        editTarget.id,
+        editForm.hseType,
+        editForm.title.trim(),
+        editForm.description.trim(),
+        editForm.severity,
+      );
+      await reload();
+      setEditOpen(false);
+      setEditTarget(null);
+      toast.success("Kayıt güncellendi");
+    } catch {
+      toast.error("Güncelleme başarısız");
+    } finally {
+      setEditSaving(false);
+    }
+  };
+
+  const handleDelete = async (rec: HseRecord) => {
+    if (
+      !window.confirm(
+        `"${rec.title}" kaydını silmek istediğinizden emin misiniz?`,
+      )
+    )
+      return;
+    setDeletingId(rec.id);
+    try {
+      await (actor as any).deleteHseRecord(rec.id);
+      setRecords((prev) => prev.filter((r) => r.id !== rec.id));
+      toast.success("Kayıt silindi");
+    } catch {
+      toast.error("Silinemedi");
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   const openCount = records.filter((r) => r.status === "açık").length;
+  const canEdit = isAdmin(session.role);
 
   return (
     <div className="space-y-6">
@@ -174,9 +247,7 @@ export default function HSE({ session }: Props) {
                 <Label>Tür</Label>
                 <Select
                   value={form.hseType}
-                  onValueChange={(v) =>
-                    setForm((prev) => ({ ...prev, hseType: v }))
-                  }
+                  onValueChange={(v) => setForm((p) => ({ ...p, hseType: v }))}
                 >
                   <SelectTrigger data-ocid="hse.select">
                     <SelectValue placeholder="Tür seç" />
@@ -195,7 +266,7 @@ export default function HSE({ session }: Props) {
                   placeholder="Olay başlığı"
                   value={form.title}
                   onChange={(e) =>
-                    setForm((prev) => ({ ...prev, title: e.target.value }))
+                    setForm((p) => ({ ...p, title: e.target.value }))
                   }
                   data-ocid="hse.input"
                 />
@@ -208,10 +279,7 @@ export default function HSE({ session }: Props) {
                   rows={3}
                   value={form.description}
                   onChange={(e) =>
-                    setForm((prev) => ({
-                      ...prev,
-                      description: e.target.value,
-                    }))
+                    setForm((p) => ({ ...p, description: e.target.value }))
                   }
                   data-ocid="hse.textarea"
                 />
@@ -220,9 +288,7 @@ export default function HSE({ session }: Props) {
                 <Label>Önem Derecesi</Label>
                 <Select
                   value={form.severity}
-                  onValueChange={(v) =>
-                    setForm((prev) => ({ ...prev, severity: v }))
-                  }
+                  onValueChange={(v) => setForm((p) => ({ ...p, severity: v }))}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Önem seç" />
@@ -241,7 +307,7 @@ export default function HSE({ session }: Props) {
                   placeholder="Bildiren kişi"
                   value={form.reportedBy}
                   onChange={(e) =>
-                    setForm((prev) => ({ ...prev, reportedBy: e.target.value }))
+                    setForm((p) => ({ ...p, reportedBy: e.target.value }))
                   }
                 />
               </div>
@@ -295,9 +361,7 @@ export default function HSE({ session }: Props) {
             </CardHeader>
             <CardContent>
               <span
-                className={`text-3xl font-bold ${
-                  openCount > 0 ? "text-red-600" : "text-slate-400"
-                }`}
+                className={`text-3xl font-bold ${openCount > 0 ? "text-red-600" : "text-slate-400"}`}
                 style={{ fontFamily: "'Bricolage Grotesque', sans-serif" }}
               >
                 {openCount}
@@ -362,7 +426,9 @@ export default function HSE({ session }: Props) {
                     <TableHead className="hidden sm:table-cell">
                       Tarih
                     </TableHead>
-                    <TableHead className="w-24">İşlemler</TableHead>
+                    <TableHead className={canEdit ? "w-32" : "w-24"}>
+                      İşlemler
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -412,22 +478,51 @@ export default function HSE({ session }: Props) {
                           {formatDate(rec.createdAt)}
                         </TableCell>
                         <TableCell>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="text-xs"
-                            onClick={() => handleToggleStatus(rec)}
-                            disabled={togglingId === rec.id}
-                            data-ocid={`hse.toggle.${idx + 1}`}
-                          >
-                            {togglingId === rec.id ? (
-                              <Loader2 className="w-3 h-3 animate-spin" />
-                            ) : rec.status === "açık" ? (
-                              "Kapat"
-                            ) : (
-                              "Aç"
+                          <div className="flex items-center gap-1">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="text-xs h-7"
+                              onClick={() => handleToggleStatus(rec)}
+                              disabled={togglingId === rec.id}
+                              data-ocid={`hse.toggle.${idx + 1}`}
+                            >
+                              {togglingId === rec.id ? (
+                                <Loader2 className="w-3 h-3 animate-spin" />
+                              ) : rec.status === "açık" ? (
+                                "Kapat"
+                              ) : (
+                                "Aç"
+                              )}
+                            </Button>
+                            {canEdit && (
+                              <>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7 text-muted-foreground hover:text-primary"
+                                  onClick={() => openEdit(rec)}
+                                  data-ocid={`hse.edit_button.${idx + 1}`}
+                                >
+                                  <Pencil className="w-3.5 h-3.5" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7 text-red-400 hover:text-red-600 hover:bg-red-50"
+                                  onClick={() => handleDelete(rec)}
+                                  disabled={deletingId === rec.id}
+                                  data-ocid={`hse.delete_button.${idx + 1}`}
+                                >
+                                  {deletingId === rec.id ? (
+                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                  ) : (
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  )}
+                                </Button>
+                              </>
                             )}
-                          </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     );
@@ -438,6 +533,92 @@ export default function HSE({ session }: Props) {
           )}
         </CardContent>
       </Card>
+
+      {/* Edit Dialog */}
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent data-ocid="hse.edit_dialog">
+          <DialogHeader>
+            <DialogTitle>İSG Kaydını Düzenle</DialogTitle>
+            <DialogDescription>Kayıt bilgilerini güncelleyin</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label>Tür</Label>
+              <Select
+                value={editForm.hseType}
+                onValueChange={(v) =>
+                  setEditForm((p) => ({ ...p, hseType: v }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="kaza">Kaza</SelectItem>
+                  <SelectItem value="denetim">Denetim</SelectItem>
+                  <SelectItem value="risk">Risk</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Başlık</Label>
+              <Input
+                value={editForm.title}
+                onChange={(e) =>
+                  setEditForm((p) => ({ ...p, title: e.target.value }))
+                }
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Açıklama</Label>
+              <Textarea
+                rows={3}
+                value={editForm.description}
+                onChange={(e) =>
+                  setEditForm((p) => ({ ...p, description: e.target.value }))
+                }
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Önem Derecesi</Label>
+              <Select
+                value={editForm.severity}
+                onValueChange={(v) =>
+                  setEditForm((p) => ({ ...p, severity: v }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="düşük">Düşük</SelectItem>
+                  <SelectItem value="orta">Orta</SelectItem>
+                  <SelectItem value="yüksek">Yüksek</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setEditOpen(false)}
+              data-ocid="hse.edit_cancel_button"
+            >
+              İptal
+            </Button>
+            <Button
+              onClick={handleEdit}
+              disabled={editSaving}
+              data-ocid="hse.edit_save_button"
+            >
+              {editSaving ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : null}
+              Kaydet
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

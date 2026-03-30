@@ -298,6 +298,16 @@ export const idlService = IDL.Service({
   'updateProjectStatus' : IDL.Func([IDL.Text, IDL.Text], [], []),
   'updateShipmentStatus' : IDL.Func([IDL.Text, IDL.Text], [], []),
   'updateTaskStatus' : IDL.Func([IDL.Nat, IDL.Text], [], []),
+  'addSupplier' : IDL.Func([IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text], [IDL.Text], []),
+  'deletePersonnel' : IDL.Func([IDL.Text], [], []),
+  'deleteSupplier' : IDL.Func([IDL.Text], [], []),
+  'listAllTasks' : IDL.Func([IDL.Text], [IDL.Vec(IDL.Record({'id':IDL.Nat,'projectId':IDL.Text,'companyId':IDL.Text,'title':IDL.Text,'status':IDL.Text,'assigneeId':IDL.Text,'dueDate':IDL.Text}))], ['query']),
+  'listSuppliers' : IDL.Func([IDL.Text], [IDL.Vec(IDL.Record({'id':IDL.Text,'companyId':IDL.Text,'name':IDL.Text,'category':IDL.Text,'contactName':IDL.Text,'contactPhone':IDL.Text,'contactEmail':IDL.Text,'address':IDL.Text,'notes':IDL.Text,'status':IDL.Text,'createdAt':IDL.Int}))], ['query']),
+  'resolveFailure' : IDL.Func([IDL.Text, IDL.Text], [], []),
+  'updatePersonnel' : IDL.Func([IDL.Text, IDL.Text, IDL.Text], [], []),
+  'updateSupplier' : IDL.Func([IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text], [], []),
+  'updateSupplierStatus' : IDL.Func([IDL.Text, IDL.Text], [], []),
+  'updateTask' : IDL.Func([IDL.Nat, IDL.Text, IDL.Text, IDL.Text], [], []),
 });
 
 export const idlInitArgs = [];
@@ -597,6 +607,16 @@ export const idlFactory = ({ IDL }) => {
     'updateProjectStatus' : IDL.Func([IDL.Text, IDL.Text], [], []),
     'updateShipmentStatus' : IDL.Func([IDL.Text, IDL.Text], [], []),
     'updateTaskStatus' : IDL.Func([IDL.Nat, IDL.Text], [], []),
+    'addSupplier' : IDL.Func([IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text], [IDL.Text], []),
+    'deletePersonnel' : IDL.Func([IDL.Text], [], []),
+    'deleteSupplier' : IDL.Func([IDL.Text], [], []),
+    'listAllTasks' : IDL.Func([IDL.Text], [IDL.Vec(IDL.Record({'id':IDL.Nat,'projectId':IDL.Text,'companyId':IDL.Text,'title':IDL.Text,'status':IDL.Text,'assigneeId':IDL.Text,'dueDate':IDL.Text}))], ['query']),
+    'listSuppliers' : IDL.Func([IDL.Text], [IDL.Vec(IDL.Record({'id':IDL.Text,'companyId':IDL.Text,'name':IDL.Text,'category':IDL.Text,'contactName':IDL.Text,'contactPhone':IDL.Text,'contactEmail':IDL.Text,'address':IDL.Text,'notes':IDL.Text,'status':IDL.Text,'createdAt':IDL.Int}))], ['query']),
+    'resolveFailure' : IDL.Func([IDL.Text, IDL.Text], [], []),
+    'updatePersonnel' : IDL.Func([IDL.Text, IDL.Text, IDL.Text], [], []),
+    'updateSupplier' : IDL.Func([IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text], [], []),
+    'updateSupplierStatus' : IDL.Func([IDL.Text, IDL.Text], [], []),
+    'updateTask' : IDL.Func([IDL.Nat, IDL.Text, IDL.Text, IDL.Text], [], []),
   });
 };
 

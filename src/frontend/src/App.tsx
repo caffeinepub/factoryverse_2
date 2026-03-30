@@ -29,7 +29,8 @@ export type Page =
   | "project-costs"
   | "personnel-detail"
   | "project-detail"
-  | "reports";
+  | "reports"
+  | "suppliers";
 
 export interface Session {
   companyId: string;

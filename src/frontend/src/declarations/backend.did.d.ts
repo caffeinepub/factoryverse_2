@@ -236,6 +236,16 @@ export interface _SERVICE {
   'updateProjectStatus' : ActorMethod<[string, string], undefined>,
   'updateShipmentStatus' : ActorMethod<[string, string], undefined>,
   'updateTaskStatus' : ActorMethod<[bigint, string], undefined>,
+  'addSupplier' : ActorMethod<[string, string, string, string, string, string, string, string], string>,
+  'deletePersonnel' : ActorMethod<[string], undefined>,
+  'deleteSupplier' : ActorMethod<[string], undefined>,
+  'listAllTasks' : ActorMethod<[string], Array<Task>>,
+  'listSuppliers' : ActorMethod<[string], Array<{id:string,companyId:string,name:string,category:string,contactName:string,contactPhone:string,contactEmail:string,address:string,notes:string,status:string,createdAt:bigint}>>,
+  'resolveFailure' : ActorMethod<[string, string], undefined>,
+  'updatePersonnel' : ActorMethod<[string, string, string], undefined>,
+  'updateSupplier' : ActorMethod<[string, string, string, string, string, string, string, string], undefined>,
+  'updateSupplierStatus' : ActorMethod<[string, string], undefined>,
+  'updateTask' : ActorMethod<[bigint, string, string, string], undefined>,
 }
 export declare const idlService: IDL.ServiceClass;
 export declare const idlInitArgs: IDL.Type[];

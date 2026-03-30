@@ -31,7 +31,7 @@ import {
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { useActor } from "@/hooks/useActor";
-import { ArrowRight, Loader2, Plus, Truck } from "lucide-react";
+import { ArrowRight, Loader2, Pencil, Plus, Trash2, Truck } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -53,6 +53,17 @@ const statusMap: Record<string, { label: string; cls: string }> = {
   cancelled: { label: "İptal", cls: "bg-red-100 text-red-700" },
 };
 
+const emptyForm = {
+  title: "",
+  machineId: "",
+  fromLocation: "",
+  toLocation: "",
+  carrier: "",
+  shipDate: "",
+  estimatedDelivery: "",
+  notes: "",
+};
+
 function formatDate(str: string): string {
   if (!str) return "—";
   try {
@@ -62,6 +73,9 @@ function formatDate(str: string): string {
   }
 }
 
+const isAdmin = (role: string) =>
+  role === "admin" || role === "companyAdmin" || role === "manager";
+
 export default function Logistics({ session }: Props) {
   const { actor } = useActor();
   const [shipments, setShipments] = useState<Shipment[]>([]);
@@ -70,17 +84,14 @@ export default function Logistics({ session }: Props) {
   const [saving, setSaving] = useState(false);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [filter, setFilter] = useState<StatusFilter>("all");
+  const [form, setForm] = useState(emptyForm);
 
-  const [form, setForm] = useState({
-    title: "",
-    machineId: "",
-    fromLocation: "",
-    toLocation: "",
-    carrier: "",
-    shipDate: "",
-    estimatedDelivery: "",
-    notes: "",
-  });
+  // Edit state
+  const [editOpen, setEditOpen] = useState(false);
+  const [editTarget, setEditTarget] = useState<Shipment | null>(null);
+  const [editForm, setEditForm] = useState(emptyForm);
+  const [editSaving, setEditSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!actor || !session.companyId) {
@@ -93,6 +104,14 @@ export default function Logistics({ session }: Props) {
       .catch(() => toast.error("Sevkiyatlar yüklenemedi"))
       .finally(() => setLoading(false));
   }, [session.companyId, actor]);
+
+  const reload = async () => {
+    if (!actor) return;
+    const res: Shipment[] = await (actor as any).listShipments(
+      session.companyId,
+    );
+    setShipments(res);
+  };
 
   const handleAdd = async () => {
     if (!actor || !form.title.trim()) {
@@ -113,24 +132,78 @@ export default function Logistics({ session }: Props) {
         form.estimatedDelivery,
         form.notes.trim(),
       );
-      const updated: Shipment[] = await a.listShipments(session.companyId);
-      setShipments(updated);
-      setForm({
-        title: "",
-        machineId: "",
-        fromLocation: "",
-        toLocation: "",
-        carrier: "",
-        shipDate: "",
-        estimatedDelivery: "",
-        notes: "",
-      });
+      await reload();
+      setForm(emptyForm);
       setDialogOpen(false);
       toast.success("Sevkiyat eklendi");
     } catch {
       toast.error("Sevkiyat eklenemedi");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const openEdit = (ship: Shipment) => {
+    setEditTarget(ship);
+    setEditForm({
+      title: ship.title,
+      machineId: ship.machineId ?? "",
+      fromLocation: ship.fromLocation ?? "",
+      toLocation: ship.toLocation ?? "",
+      carrier: ship.carrier ?? "",
+      shipDate: ship.shipDate ?? "",
+      estimatedDelivery: ship.estimatedDelivery ?? "",
+      notes: ship.notes ?? "",
+    });
+    setEditOpen(true);
+  };
+
+  const handleEdit = async () => {
+    if (!actor || !editTarget) return;
+    if (!editForm.title.trim()) {
+      toast.error("Başlık zorunludur");
+      return;
+    }
+    setEditSaving(true);
+    try {
+      await (actor as any).updateShipment(
+        editTarget.id,
+        editForm.title.trim(),
+        editForm.machineId.trim(),
+        editForm.fromLocation.trim(),
+        editForm.toLocation.trim(),
+        editForm.carrier.trim(),
+        editForm.shipDate,
+        editForm.estimatedDelivery,
+        editForm.notes.trim(),
+      );
+      await reload();
+      setEditOpen(false);
+      setEditTarget(null);
+      toast.success("Sevkiyat güncellendi");
+    } catch {
+      toast.error("Güncelleme başarısız");
+    } finally {
+      setEditSaving(false);
+    }
+  };
+
+  const handleDelete = async (ship: Shipment) => {
+    if (
+      !window.confirm(
+        `"${ship.title}" sevkiyatını silmek istediğinizden emin misiniz?`,
+      )
+    )
+      return;
+    setDeletingId(ship.id);
+    try {
+      await (actor as any).deleteShipment(ship.id);
+      setShipments((prev) => prev.filter((s) => s.id !== ship.id));
+      toast.success("Sevkiyat silindi");
+    } catch {
+      toast.error("Silinemedi");
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -170,6 +243,92 @@ export default function Logistics({ session }: Props) {
     { key: "delivered", label: "Teslim Edildi" },
   ];
 
+  const formFields = (
+    vals: typeof emptyForm,
+    set: (fn: (p: typeof emptyForm) => typeof emptyForm) => void,
+    prefix: string,
+  ) => (
+    <div className="space-y-4 py-2">
+      <div className="space-y-2">
+        <Label htmlFor={`${prefix}-title`}>Başlık *</Label>
+        <Input
+          id={`${prefix}-title`}
+          placeholder="Sevkiyat başlığı"
+          value={vals.title}
+          onChange={(e) => set((p) => ({ ...p, title: e.target.value }))}
+        />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor={`${prefix}-machine`}>Makine ID (opsiyonel)</Label>
+        <Input
+          id={`${prefix}-machine`}
+          placeholder="Makine kodu"
+          value={vals.machineId}
+          onChange={(e) => set((p) => ({ ...p, machineId: e.target.value }))}
+        />
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-2">
+          <Label>Çıkış Noktası</Label>
+          <Input
+            placeholder="Örn. İstanbul"
+            value={vals.fromLocation}
+            onChange={(e) =>
+              set((p) => ({ ...p, fromLocation: e.target.value }))
+            }
+          />
+        </div>
+        <div className="space-y-2">
+          <Label>Varış Noktası</Label>
+          <Input
+            placeholder="Örn. Ankara"
+            value={vals.toLocation}
+            onChange={(e) => set((p) => ({ ...p, toLocation: e.target.value }))}
+          />
+        </div>
+      </div>
+      <div className="space-y-2">
+        <Label>Taşıyıcı / Nakliyeci</Label>
+        <Input
+          placeholder="Nakliye firması"
+          value={vals.carrier}
+          onChange={(e) => set((p) => ({ ...p, carrier: e.target.value }))}
+        />
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-2">
+          <Label>Sevk Tarihi</Label>
+          <Input
+            type="date"
+            value={vals.shipDate}
+            onChange={(e) => set((p) => ({ ...p, shipDate: e.target.value }))}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label>Tahmini Teslim</Label>
+          <Input
+            type="date"
+            value={vals.estimatedDelivery}
+            onChange={(e) =>
+              set((p) => ({ ...p, estimatedDelivery: e.target.value }))
+            }
+          />
+        </div>
+      </div>
+      <div className="space-y-2">
+        <Label>Notlar</Label>
+        <Textarea
+          placeholder="Ek notlar"
+          rows={2}
+          value={vals.notes}
+          onChange={(e) => set((p) => ({ ...p, notes: e.target.value }))}
+        />
+      </div>
+    </div>
+  );
+
+  const canEdit = isAdmin(session.role);
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -198,112 +357,7 @@ export default function Logistics({ session }: Props) {
                 Sevkiyat bilgilerini doldurun
               </DialogDescription>
             </DialogHeader>
-            <div className="space-y-4 py-2">
-              <div className="space-y-2">
-                <Label htmlFor="ship-title">Başlık *</Label>
-                <Input
-                  id="ship-title"
-                  placeholder="Sevkiyat başlığı"
-                  value={form.title}
-                  onChange={(e) =>
-                    setForm((prev) => ({ ...prev, title: e.target.value }))
-                  }
-                  data-ocid="logistics.input"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="ship-machine">Makine ID (opsiyonel)</Label>
-                <Input
-                  id="ship-machine"
-                  placeholder="Makine kodu veya boş bırakın"
-                  value={form.machineId}
-                  onChange={(e) =>
-                    setForm((prev) => ({ ...prev, machineId: e.target.value }))
-                  }
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-2">
-                  <Label htmlFor="ship-from">Çıkış Noktası</Label>
-                  <Input
-                    id="ship-from"
-                    placeholder="Örn. İstanbul"
-                    value={form.fromLocation}
-                    onChange={(e) =>
-                      setForm((prev) => ({
-                        ...prev,
-                        fromLocation: e.target.value,
-                      }))
-                    }
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="ship-to">Varış Noktası</Label>
-                  <Input
-                    id="ship-to"
-                    placeholder="Örn. Ankara"
-                    value={form.toLocation}
-                    onChange={(e) =>
-                      setForm((prev) => ({
-                        ...prev,
-                        toLocation: e.target.value,
-                      }))
-                    }
-                  />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="ship-carrier">Taşıyıcı / Nakliyeci</Label>
-                <Input
-                  id="ship-carrier"
-                  placeholder="Nakliye firması"
-                  value={form.carrier}
-                  onChange={(e) =>
-                    setForm((prev) => ({ ...prev, carrier: e.target.value }))
-                  }
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-2">
-                  <Label htmlFor="ship-date">Sevk Tarihi</Label>
-                  <Input
-                    id="ship-date"
-                    type="date"
-                    value={form.shipDate}
-                    onChange={(e) =>
-                      setForm((prev) => ({ ...prev, shipDate: e.target.value }))
-                    }
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="ship-est">Tahmini Teslim</Label>
-                  <Input
-                    id="ship-est"
-                    type="date"
-                    value={form.estimatedDelivery}
-                    onChange={(e) =>
-                      setForm((prev) => ({
-                        ...prev,
-                        estimatedDelivery: e.target.value,
-                      }))
-                    }
-                  />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="ship-notes">Notlar</Label>
-                <Textarea
-                  id="ship-notes"
-                  placeholder="Ek notlar"
-                  rows={2}
-                  value={form.notes}
-                  onChange={(e) =>
-                    setForm((prev) => ({ ...prev, notes: e.target.value }))
-                  }
-                  data-ocid="logistics.textarea"
-                />
-              </div>
-            </div>
+            {formFields(form, setForm, "add")}
             <DialogFooter>
               <Button
                 variant="outline"
@@ -330,34 +384,25 @@ export default function Logistics({ session }: Props) {
       {/* Summary cards */}
       {!loading && shipments.length > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          {(
-            [
-              { key: "planned", label: "Planlandı", color: "text-blue-600" },
-              { key: "in-transit", label: "Yolda", color: "text-orange-600" },
-              {
-                key: "delivered",
-                label: "Teslim Edildi",
-                color: "text-green-600",
-              },
-              { key: "cancelled", label: "İptal", color: "text-red-500" },
-            ] as const
-          ).map(({ key, label, color }) => (
-            <Card key={key}>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-xs font-medium text-muted-foreground">
-                  {label}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <span
-                  className={`text-3xl font-bold ${color}`}
-                  style={{ fontFamily: "'Bricolage Grotesque', sans-serif" }}
-                >
-                  {counts[key]}
-                </span>
-              </CardContent>
-            </Card>
-          ))}
+          {(["planned", "in-transit", "delivered", "cancelled"] as const).map(
+            (key) => (
+              <Card key={key}>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-xs font-medium text-muted-foreground">
+                    {statusMap[key].label}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <span
+                    className="text-3xl font-bold"
+                    style={{ fontFamily: "'Bricolage Grotesque', sans-serif" }}
+                  >
+                    {counts[key]}
+                  </span>
+                </CardContent>
+              </Card>
+            ),
+          )}
         </div>
       )}
 
@@ -426,7 +471,8 @@ export default function Logistics({ session }: Props) {
                       Tah. Teslim
                     </TableHead>
                     <TableHead>Durum</TableHead>
-                    <TableHead className="w-36">İşlemler</TableHead>
+                    <TableHead className="w-36">Durum Güncelle</TableHead>
+                    {canEdit && <TableHead className="w-20">İşlem</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -495,6 +541,35 @@ export default function Logistics({ session }: Props) {
                             </SelectContent>
                           </Select>
                         </TableCell>
+                        {canEdit && (
+                          <TableCell>
+                            <div className="flex items-center gap-1">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-muted-foreground hover:text-primary"
+                                onClick={() => openEdit(ship)}
+                                data-ocid={`logistics.edit_button.${idx + 1}`}
+                              >
+                                <Pencil className="w-3.5 h-3.5" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-red-400 hover:text-red-600 hover:bg-red-50"
+                                onClick={() => handleDelete(ship)}
+                                disabled={deletingId === ship.id}
+                                data-ocid={`logistics.delete_button.${idx + 1}`}
+                              >
+                                {deletingId === ship.id ? (
+                                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                ) : (
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                )}
+                              </Button>
+                            </div>
+                          </TableCell>
+                        )}
                       </TableRow>
                     );
                   })}
@@ -504,6 +579,38 @@ export default function Logistics({ session }: Props) {
           )}
         </CardContent>
       </Card>
+
+      {/* Edit Dialog */}
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className="max-w-lg" data-ocid="logistics.edit_dialog">
+          <DialogHeader>
+            <DialogTitle>Sevkiyatı Düzenle</DialogTitle>
+            <DialogDescription>
+              Sevkiyat bilgilerini güncelleyin
+            </DialogDescription>
+          </DialogHeader>
+          {formFields(editForm, setEditForm, "edit")}
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setEditOpen(false)}
+              data-ocid="logistics.edit_cancel_button"
+            >
+              İptal
+            </Button>
+            <Button
+              onClick={handleEdit}
+              disabled={editSaving}
+              data-ocid="logistics.edit_save_button"
+            >
+              {editSaving ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : null}
+              Kaydet
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
