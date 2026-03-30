@@ -29,6 +29,7 @@ import {
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { useActor } from "@/hooks/useActor";
+import { logActivity } from "@/pages/ActivityLog";
 import {
   ChevronDown,
   Cpu,
@@ -163,6 +164,13 @@ export default function Machines({ session }: Props) {
         form.notes,
       );
       toast.success("Makine eklendi!");
+      logActivity(
+        session.companyId,
+        session.personnelId,
+        "Makine Eklendi",
+        "machine",
+        form.name,
+      );
       setDialogOpen(false);
       setForm({
         name: "",
@@ -246,6 +254,13 @@ export default function Machines({ session }: Props) {
     try {
       await api.deleteMachine(machine.id);
       setMachines((prev) => prev.filter((m) => m.id !== machine.id));
+      logActivity(
+        session.companyId,
+        session.personnelId,
+        "Makine Silindi",
+        "machine",
+        machine.name,
+      );
       toast.success("Makine silindi.");
     } catch {
       toast.error("Makine silinirken hata oluştu.");
@@ -629,95 +644,182 @@ export default function Machines({ session }: Props) {
           </CardContent>
         </Card>
       ) : (
-        <div className="rounded-lg border border-border overflow-hidden">
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-muted/50">
-                <TableHead>Ad</TableHead>
-                <TableHead>Tip</TableHead>
-                <TableHead className="hidden md:table-cell">Seri No</TableHead>
-                <TableHead className="hidden md:table-cell">Konum</TableHead>
-                <TableHead>Durum</TableHead>
-                <TableHead className="w-44">İşlemler</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {machines.map((m, idx) => (
-                <TableRow key={m.id} data-ocid={`machines.item.${idx + 1}`}>
-                  <TableCell className="font-medium">{m.name}</TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {m.machineType}
-                  </TableCell>
-                  <TableCell className="hidden md:table-cell text-muted-foreground font-mono text-xs">
-                    {m.serialNumber || "—"}
-                  </TableCell>
-                  <TableCell className="hidden md:table-cell text-muted-foreground">
-                    {m.location || "—"}
-                  </TableCell>
-                  <TableCell>
-                    <StatusBadge status={m.status} />
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-1">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="text-xs"
-                            data-ocid={`machines.status.${idx + 1}`}
-                          >
-                            Durum <ChevronDown className="w-3 h-3 ml-1" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent>
-                          {statusOptions.map((s) => (
-                            <DropdownMenuItem
-                              key={s.value}
-                              onClick={() => handleStatusChange(m.id, s.value)}
-                            >
-                              {s.label}
-                            </DropdownMenuItem>
-                          ))}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+        <>
+          {/* Mobile card view */}
+          <div className="md:hidden space-y-3">
+            {machines.map((m, idx) => (
+              <div
+                key={m.id}
+                className="bg-white rounded-xl p-4 shadow-sm border border-border"
+                data-ocid={`machines.item.${idx + 1}`}
+              >
+                <div className="flex items-start justify-between mb-2">
+                  <div>
+                    <p className="font-semibold text-sm">{m.name}</p>
+                    <p className="text-muted-foreground text-xs">
+                      {m.machineType}
+                    </p>
+                  </div>
+                  <StatusBadge status={m.status} />
+                </div>
+                {(m.location || m.serialNumber) && (
+                  <div className="text-xs text-muted-foreground mb-3 space-y-0.5">
+                    {m.location && <p>📍 {m.location}</p>}
+                    {m.serialNumber && (
+                      <p className="font-mono">S/N: {m.serialNumber}</p>
+                    )}
+                  </div>
+                )}
+                <div className="flex flex-wrap gap-1.5">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
                       <Button
                         variant="outline"
                         size="sm"
-                        className="text-xs px-2"
-                        onClick={() => handleOpenQr(m)}
-                        data-ocid={`machines.qr.${idx + 1}`}
-                        title="QR Kod"
+                        className="text-xs h-7"
+                        data-ocid={`machines.status.${idx + 1}`}
                       >
-                        <QrCode className="w-3.5 h-3.5" />
+                        Durum <ChevronDown className="w-3 h-3 ml-1" />
                       </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="text-xs px-2"
-                        onClick={() => handleOpenEdit(m)}
-                        data-ocid={`machines.edit_button.${idx + 1}`}
-                        title="Düzenle"
-                      >
-                        <Pencil className="w-3.5 h-3.5" />
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="text-xs px-2 text-red-600 hover:text-red-700 hover:bg-red-50"
-                        onClick={() => handleDelete(m)}
-                        data-ocid={`machines.delete_button.${idx + 1}`}
-                        title="Sil"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </Button>
-                    </div>
-                  </TableCell>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent>
+                      {statusOptions.map((s) => (
+                        <DropdownMenuItem
+                          key={s.value}
+                          onClick={() => handleStatusChange(m.id, s.value)}
+                        >
+                          {s.label}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-xs h-7 px-2"
+                    onClick={() => handleOpenQr(m)}
+                    title="QR Kod"
+                  >
+                    <QrCode className="w-3.5 h-3.5" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-xs h-7 px-2"
+                    onClick={() => handleOpenEdit(m)}
+                    data-ocid={`machines.edit_button.${idx + 1}`}
+                    title="Düzenle"
+                  >
+                    <Pencil className="w-3.5 h-3.5" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-xs h-7 px-2 text-red-600 hover:text-red-700 hover:bg-red-50"
+                    onClick={() => handleDelete(m)}
+                    data-ocid={`machines.delete_button.${idx + 1}`}
+                    title="Sil"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="hidden md:block rounded-lg border border-border overflow-hidden">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/50">
+                  <TableHead>Ad</TableHead>
+                  <TableHead>Tip</TableHead>
+                  <TableHead className="hidden md:table-cell">
+                    Seri No
+                  </TableHead>
+                  <TableHead className="hidden md:table-cell">Konum</TableHead>
+                  <TableHead>Durum</TableHead>
+                  <TableHead className="w-44">İşlemler</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
+              </TableHeader>
+              <TableBody>
+                {machines.map((m, idx) => (
+                  <TableRow key={m.id} data-ocid={`machines.item.${idx + 1}`}>
+                    <TableCell className="font-medium">{m.name}</TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {m.machineType}
+                    </TableCell>
+                    <TableCell className="hidden md:table-cell text-muted-foreground font-mono text-xs">
+                      {m.serialNumber || "—"}
+                    </TableCell>
+                    <TableCell className="hidden md:table-cell text-muted-foreground">
+                      {m.location || "—"}
+                    </TableCell>
+                    <TableCell>
+                      <StatusBadge status={m.status} />
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="text-xs"
+                              data-ocid={`machines.status.${idx + 1}`}
+                            >
+                              Durum <ChevronDown className="w-3 h-3 ml-1" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent>
+                            {statusOptions.map((s) => (
+                              <DropdownMenuItem
+                                key={s.value}
+                                onClick={() =>
+                                  handleStatusChange(m.id, s.value)
+                                }
+                              >
+                                {s.label}
+                              </DropdownMenuItem>
+                            ))}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-xs px-2"
+                          onClick={() => handleOpenQr(m)}
+                          data-ocid={`machines.qr.${idx + 1}`}
+                          title="QR Kod"
+                        >
+                          <QrCode className="w-3.5 h-3.5" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-xs px-2"
+                          onClick={() => handleOpenEdit(m)}
+                          data-ocid={`machines.edit_button.${idx + 1}`}
+                          title="Düzenle"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-xs px-2 text-red-600 hover:text-red-700 hover:bg-red-50"
+                          onClick={() => handleDelete(m)}
+                          data-ocid={`machines.delete_button.${idx + 1}`}
+                          title="Sil"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </>
       )}
     </div>
   );

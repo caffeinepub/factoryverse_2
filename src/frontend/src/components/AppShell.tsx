@@ -1,8 +1,10 @@
 import type { Page, Session } from "@/App";
+import GlobalSearch from "@/components/GlobalSearch";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import ActivityLog from "@/pages/ActivityLog";
 import Attendance from "@/pages/Attendance";
 import Dashboard from "@/pages/Dashboard";
 import Documents from "@/pages/Documents";
@@ -22,15 +24,18 @@ import ProjectDetail from "@/pages/ProjectDetail";
 import Projects from "@/pages/Projects";
 import Reports from "@/pages/Reports";
 import SettingsPage from "@/pages/Settings";
+import ShiftManagement from "@/pages/ShiftManagement";
 import Suppliers from "@/pages/Suppliers";
 import Tasks from "@/pages/Tasks";
 import {
   BarChart3,
   Bell,
   Building2,
+  CalendarClock,
   CalendarDays,
   ClipboardCheck,
   ClipboardList,
+  Clock,
   Cpu,
   DollarSign,
   Factory,
@@ -40,6 +45,7 @@ import {
   LogOut,
   Menu,
   PieChart,
+  Search,
   Settings,
   ShieldAlert,
   Truck,
@@ -55,6 +61,7 @@ interface Props {
   navigate: (p: Page) => void;
   onLogout: () => void;
   targetMachineId?: string;
+  setTargetMachineId?: (id: string) => void;
   targetPersonnelId?: string;
   setTargetPersonnelId?: (id: string) => void;
   targetProjectId?: string;
@@ -83,6 +90,8 @@ const navItems = [
   { id: "calendar" as Page, label: "Takvim", icon: CalendarDays },
   { id: "personnel" as Page, label: "Personel", icon: Users, adminOnly: true },
   { id: "attendance" as Page, label: "Yoklama", icon: UserCheck },
+  { id: "shifts" as Page, label: "Vardiya Yönetimi", icon: CalendarClock },
+  { id: "activity-log" as Page, label: "Aktivite Logu", icon: Clock },
   { id: "settings" as Page, label: "Ayarlar", icon: Settings },
 ];
 
@@ -100,6 +109,7 @@ export default function AppShell({
   navigate,
   onLogout,
   targetMachineId,
+  setTargetMachineId,
   targetPersonnelId,
   setTargetPersonnelId,
   targetProjectId,
@@ -107,6 +117,7 @@ export default function AppShell({
 }: Props) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [notifVisited, setNotifVisited] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
 
   useEffect(() => {
     if (page === "notifications") {
@@ -143,6 +154,8 @@ export default function AppShell({
     reports: "Raporlar & İstatistikler",
     suppliers: "Tedarikçiler",
     attendance: "Yoklama Takibi",
+    "activity-log": "Aktivite Logu",
+    shifts: "Vardiya Yönetimi",
     landing: "Ana Sayfa",
     login: "Giriş",
     register: "Kayıt",
@@ -231,6 +244,10 @@ export default function AppShell({
         return <Suppliers session={session} />;
       case "attendance":
         return <Attendance session={session} navigate={navigate} />;
+      case "activity-log":
+        return <ActivityLog session={session} />;
+      case "shifts":
+        return <ShiftManagement session={session} />;
       default:
         return <Dashboard session={session} navigate={navigate} />;
     }
@@ -384,6 +401,14 @@ export default function AppShell({
             <Button
               variant="ghost"
               size="icon"
+              onClick={() => setSearchOpen(true)}
+              data-ocid="nav.search.button"
+            >
+              <Search className="w-5 h-5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
               className="relative"
               onClick={() => navigate("notifications")}
               data-ocid="nav.notifications.button"
@@ -406,6 +431,16 @@ export default function AppShell({
           {renderPage()}
         </main>
       </div>
+
+      {/* Global Search */}
+      <GlobalSearch
+        open={searchOpen}
+        onClose={() => setSearchOpen(false)}
+        session={session}
+        navigate={navigate}
+        setTargetMachineId={setTargetMachineId}
+        setTargetProjectId={setTargetProjectId}
+      />
     </div>
   );
 }

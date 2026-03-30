@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useActor } from "@/hooks/useActor";
+import { logActivity } from "@/pages/ActivityLog";
 import { FolderKanban, Loader2, Pencil, Plus, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -108,6 +109,13 @@ export default function Projects({ session, navigateToDetail }: Props) {
         form.deadline,
       );
       toast.success("Proje oluşturuldu!");
+      logActivity(
+        session.companyId,
+        session.personnelId,
+        "Proje Oluşturuldu",
+        "project",
+        form.name,
+      );
       setDialogOpen(false);
       setForm({ name: "", description: "", deadline: "" });
       await loadProjects();

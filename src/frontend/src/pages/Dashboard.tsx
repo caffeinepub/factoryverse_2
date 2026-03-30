@@ -13,7 +13,9 @@ import {
   Cpu,
   FolderKanban,
   Loader2,
+  Package,
   PlayCircle,
+  Users,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import {
@@ -50,9 +52,10 @@ export default function Dashboard({ session, navigate }: Props) {
   const [projects, setProjects] = useState<Project[]>([]);
   const [failures, setFailures] = useState<Failure[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [attendance, setAttendance] = useState<any[]>([]);
+  const [spareParts, setSpareParts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: actor stabilizes after init
   useEffect(() => {
     if (!session.companyId || !actor) {
       setLoading(false);
@@ -64,12 +67,16 @@ export default function Dashboard({ session, navigate }: Props) {
       actor.listProjects(session.companyId),
       anyActor.listFailures(session.companyId) as Promise<Failure[]>,
       anyActor.listAllTasks(session.companyId) as Promise<Task[]>,
+      anyActor.listAttendance(session.companyId).catch(() => []),
+      anyActor.listSpareParts(session.companyId).catch(() => []),
     ])
-      .then(([m, p, f, t]) => {
-        setMachines(m);
-        setProjects(p);
-        setFailures(f);
-        setTasks(t);
+      .then(([m, p, f, t, att, sp]) => {
+        setMachines(m as Machine[]);
+        setProjects(p as Project[]);
+        setFailures(f as Failure[]);
+        setTasks(t as Task[]);
+        setAttendance(att as any[]);
+        setSpareParts(sp as any[]);
       })
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -162,6 +169,22 @@ export default function Dashboard({ session, navigate }: Props) {
     .sort((a, b) => b.total - a.total)
     .slice(0, 5)
     .filter((item) => item.total > 0 || projects.length <= 5);
+
+  // Attendance: today
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const todayAttendance = attendance.filter((a) => a.date === todayStr);
+  const todayPresent = todayAttendance.filter(
+    (a) => a.status !== "Devamsız" && a.status !== "Geç",
+  ).length;
+  const todayAbsent = todayAttendance.filter(
+    (a) => a.status === "Devamsız",
+  ).length;
+  const todayLate = todayAttendance.filter((a) => a.status === "Geç").length;
+
+  // Low stock parts
+  const lowStockParts = spareParts
+    .filter((sp) => Number(sp.quantity ?? 0) <= Number(sp.minStock ?? 0))
+    .slice(0, 5);
 
   return (
     <div className="space-y-6">
@@ -363,6 +386,90 @@ export default function Dashboard({ session, navigate }: Props) {
                 </CardContent>
               </Card>
             </div>
+          </div>
+
+          {/* Attendance + Low Stock widgets */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {/* Bugün Yoklama */}
+            <Card data-ocid="dashboard.attendance.card">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                  <Users className="w-4 h-4 text-indigo-500" />
+                  Bugün Yoklama
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {attendance.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">
+                    Yoklama verisi yok.
+                  </p>
+                ) : (
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="text-center">
+                      <p className="text-2xl font-bold text-green-600">
+                        {todayPresent}
+                      </p>
+                      <p className="text-xs text-muted-foreground">Giriş</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-2xl font-bold text-red-500">
+                        {todayAbsent}
+                      </p>
+                      <p className="text-xs text-muted-foreground">Devamsız</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-2xl font-bold text-yellow-500">
+                        {todayLate}
+                      </p>
+                      <p className="text-xs text-muted-foreground">Geç</p>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Düşük Stok Uyarıları */}
+            <Card data-ocid="dashboard.low_stock.card">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                  <Package className="w-4 h-4 text-orange-500" />
+                  Düşük Stok Uyarıları
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {lowStockParts.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">
+                    Stok uyarısı yok ✓
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {lowStockParts.map((sp, idx) => (
+                      <div
+                        key={sp.id}
+                        className="flex items-center justify-between text-xs"
+                        data-ocid={`dashboard.low_stock.item.${idx + 1}`}
+                      >
+                        <div className="min-w-0">
+                          <p className="font-medium truncate">{sp.name}</p>
+                          <p className="text-muted-foreground font-mono">
+                            {sp.machineId || "—"}
+                          </p>
+                        </div>
+                        <span
+                          className={`ml-2 px-2 py-0.5 rounded-full font-bold ${
+                            Number(sp.quantity ?? 0) === 0
+                              ? "bg-red-100 text-red-700"
+                              : "bg-yellow-100 text-yellow-700"
+                          }`}
+                        >
+                          {Number(sp.quantity ?? 0)}/{Number(sp.minStock ?? 0)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </div>
 
           {/* Recent Projects */}

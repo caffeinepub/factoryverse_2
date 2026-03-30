@@ -3,7 +3,14 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useActor } from "@/hooks/useActor";
-import { AlertTriangle, Bell, CheckCheck, Clock, Info } from "lucide-react";
+import {
+  AlertTriangle,
+  Bell,
+  CheckCheck,
+  Clock,
+  Info,
+  Package,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 
 interface Props {
@@ -11,9 +18,11 @@ interface Props {
   navigate: (p: Page) => void;
 }
 
+type NotifCategory = "ariza" | "gorev" | "sevkiyat" | "isg" | "stok";
+
 interface NotificationItem {
   id: string;
-  category: "ariza" | "gorev" | "sevkiyat" | "isg";
+  category: NotifCategory;
   title: string;
   description: string;
   date: string;
@@ -35,12 +44,12 @@ const severityLabel: Record<string, string> = {
   info: "Bilgi",
 };
 
-const SeverityIcon = ({ severity }: { severity: string }) => {
-  if (severity === "critical")
-    return <AlertTriangle className="w-5 h-5 text-red-500" />;
-  if (severity === "warning")
-    return <Clock className="w-5 h-5 text-yellow-500" />;
-  return <Info className="w-5 h-5 text-blue-500" />;
+const categoryIcon: Record<NotifCategory, React.ReactNode> = {
+  ariza: <AlertTriangle className="w-5 h-5 text-red-500" />,
+  gorev: <Clock className="w-5 h-5 text-blue-500" />,
+  sevkiyat: <Info className="w-5 h-5 text-blue-500" />,
+  isg: <AlertTriangle className="w-5 h-5 text-orange-500" />,
+  stok: <Package className="w-5 h-5 text-yellow-500" />,
 };
 
 const formatBigintDate = (ts: bigint) => {
@@ -51,13 +60,24 @@ const formatBigintDate = (ts: bigint) => {
   }
 };
 
+type FilterTab = "all" | "unread" | "gorev" | "ariza" | "stok";
+
+const filterTabs: { key: FilterTab; label: string }[] = [
+  { key: "all", label: "Tümü" },
+  { key: "unread", label: "Okunmamış" },
+  { key: "gorev", label: "Görev" },
+  { key: "ariza", label: "Arıza" },
+  { key: "stok", label: "Stok" },
+];
+
 export default function Notifications({ session, navigate }: Props) {
   const { actor } = useActor();
   const api = actor as any;
 
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [readAll, setReadAll] = useState(false);
+  const [readIds, setReadIds] = useState<Set<string>>(new Set());
+  const [activeFilter, setActiveFilter] = useState<FilterTab>("all");
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: actor stabilizes after init
   useEffect(() => {
@@ -67,12 +87,14 @@ export default function Notifications({ session, navigate }: Props) {
         return;
       }
       try {
-        const [failures, tasks, shipments, hseRecords] = await Promise.all([
-          api.listFailures(session.companyId).catch(() => []),
-          api.listTasks(session.companyId).catch(() => []),
-          api.listShipments(session.companyId).catch(() => []),
-          api.listHseRecords(session.companyId).catch(() => []),
-        ]);
+        const [failures, tasks, shipments, hseRecords, spareParts] =
+          await Promise.all([
+            api.listFailures(session.companyId).catch(() => []),
+            api.listAllTasks(session.companyId).catch(() => []),
+            api.listShipments(session.companyId).catch(() => []),
+            api.listHseRecords(session.companyId).catch(() => []),
+            api.listSpareParts(session.companyId).catch(() => []),
+          ]);
 
         const items: NotificationItem[] = [];
         const today = new Date();
@@ -106,16 +128,34 @@ export default function Notifications({ session, navigate }: Props) {
           }
         }
 
-        // Tasks: overdue and not completed
+        // Tasks: pending or open
         for (const t of tasks as any[]) {
-          if (t.status !== "Tamamlandı" && t.dueDate) {
+          if (
+            t.status === "pending" ||
+            t.status === "Beklemede" ||
+            t.status === "Açık"
+          ) {
+            items.push({
+              id: `gorev-${t.id}`,
+              category: "gorev",
+              title: `${t.title} görevi atandı`,
+              description: `Proje: ${t.projectId || "Genel"} — Durum: ${t.status}${t.dueDate ? ` — Son: ${t.dueDate}` : ""}`,
+              date: t.dueDate || "",
+              severity: "info",
+              targetPage: "tasks",
+            });
+          } else if (
+            t.status !== "done" &&
+            t.status !== "Tamamlandı" &&
+            t.dueDate
+          ) {
             const due = new Date(t.dueDate);
             if (due < today) {
               items.push({
-                id: `gorev-${t.id}`,
+                id: `gorev-overdue-${t.id}`,
                 category: "gorev",
                 title: t.title,
-                description: `Son tarih: ${t.dueDate} — Durum: ${t.status}`,
+                description: `Son tarih geçti: ${t.dueDate} — Durum: ${t.status}`,
                 date: t.dueDate,
                 severity: "warning",
                 targetPage: "tasks",
@@ -163,11 +203,30 @@ export default function Notifications({ session, navigate }: Props) {
           }
         }
 
+        // Spare parts: low stock
+        for (const sp of spareParts as any[]) {
+          const qty = Number(sp.quantity ?? 0);
+          const min = Number(sp.minStock ?? 0);
+          if (qty <= min) {
+            items.push({
+              id: `stok-${sp.id}`,
+              category: "stok",
+              title: `${sp.name} yedek parçası stok uyarısı`,
+              description: `Mevcut stok: ${qty} ${sp.unit || "adet"} — Min stok: ${min} — Makine: ${sp.machineId || "—"}`,
+              date: "",
+              severity: qty === 0 ? "critical" : "warning",
+              targetPage: "machines",
+            });
+          }
+        }
+
         // Sort: severity first, then by date desc
         items.sort((a, b) => {
           const so = severityOrder[a.severity] - severityOrder[b.severity];
           if (so !== 0) return so;
-          return new Date(b.date).getTime() - new Date(a.date).getTime();
+          return (
+            new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime()
+          );
         });
 
         setNotifications(items);
@@ -180,22 +239,31 @@ export default function Notifications({ session, navigate }: Props) {
     load();
   }, [session.companyId, actor]);
 
-  const byCategory = {
-    ariza: notifications.filter((n) => n.category === "ariza"),
-    gorev: notifications.filter((n) => n.category === "gorev"),
-    sevkiyat: notifications.filter((n) => n.category === "sevkiyat"),
-    isg: notifications.filter((n) => n.category === "isg"),
+  const handleMarkRead = (id: string) => {
+    setReadIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
   };
 
-  const sections: {
-    key: keyof typeof byCategory;
-    label: string;
-  }[] = [
-    { key: "ariza", label: "Arıza Bildirimleri" },
-    { key: "gorev", label: "Görev Uyarıları" },
-    { key: "sevkiyat", label: "Sevkiyat Bildirimleri" },
-    { key: "isg", label: "İSG Uyarıları" },
-  ];
+  const handleMarkAllRead = () => {
+    setReadIds(new Set(notifications.map((n) => n.id)));
+  };
+
+  const filteredNotifications = notifications.filter((n) => {
+    if (activeFilter === "unread") return !readIds.has(n.id);
+    if (activeFilter === "gorev") return n.category === "gorev";
+    if (activeFilter === "ariza") return n.category === "ariza";
+    if (activeFilter === "stok") return n.category === "stok";
+    return true;
+  });
+
+  const unreadCount = notifications.filter((n) => !readIds.has(n.id)).length;
 
   return (
     <div className="space-y-6">
@@ -211,22 +279,64 @@ export default function Notifications({ session, navigate }: Props) {
           <p className="text-muted-foreground text-sm">
             {loading
               ? "Yükleniyor..."
-              : `${notifications.length} aktif bildirim`}
+              : `${notifications.length} bildirim${unreadCount > 0 ? `, ${unreadCount} okunmamış` : ""}`}
           </p>
         </div>
         {!loading && notifications.length > 0 && (
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setReadAll(true)}
-            disabled={readAll}
+            onClick={handleMarkAllRead}
+            disabled={unreadCount === 0}
             data-ocid="notifications.read_all.button"
           >
             <CheckCheck className="w-4 h-4 mr-2" />
-            {readAll ? "Tümü okundu" : "Tümünü okundu işaretle"}
+            {unreadCount === 0 ? "Tümü okundu" : "Tümünü okundu işaretle"}
           </Button>
         )}
       </div>
+
+      {/* Filter tabs */}
+      {!loading && notifications.length > 0 && (
+        <div
+          className="flex flex-wrap gap-2"
+          data-ocid="notifications.filter.tab"
+        >
+          {filterTabs.map((tab) => {
+            const count =
+              tab.key === "all"
+                ? notifications.length
+                : tab.key === "unread"
+                  ? unreadCount
+                  : notifications.filter((n) => n.category === tab.key).length;
+            return (
+              <button
+                key={tab.key}
+                type="button"
+                onClick={() => setActiveFilter(tab.key)}
+                className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                  activeFilter === tab.key
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted text-muted-foreground hover:bg-muted/80"
+                }`}
+              >
+                {tab.label}
+                {count > 0 && (
+                  <span
+                    className={`ml-1.5 px-1.5 py-0.5 rounded-full text-xs font-bold ${
+                      activeFilter === tab.key
+                        ? "bg-white/20 text-white"
+                        : "bg-primary/10 text-primary"
+                    }`}
+                  >
+                    {count}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {/* Loading */}
       {loading && (
@@ -244,91 +354,97 @@ export default function Notifications({ session, navigate }: Props) {
             <Bell className="w-14 h-14 text-muted-foreground/30" />
             <p className="font-semibold text-lg">Harika, her şey yolunda!</p>
             <p className="text-muted-foreground text-sm">
-              Şu an aktif arıza, geciken görev, bekleyen sevkiyat veya açık İSG
+              Şu an aktif arıza, bekleyen görev, stok uyarısı veya açık İSG
               kaydı yok.
             </p>
           </CardContent>
         </Card>
       )}
 
-      {/* Sections */}
+      {/* Filtered empty state */}
       {!loading &&
-        sections.map(({ key, label }) => (
-          <section key={key}>
-            <h3
-              className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3"
-              style={{ fontFamily: "'Bricolage Grotesque', sans-serif" }}
-            >
-              {label}
-              {byCategory[key].length > 0 && (
-                <span className="ml-2 px-1.5 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-bold">
-                  {byCategory[key].length}
-                </span>
-              )}
-            </h3>
-
-            {byCategory[key].length === 0 ? (
-              <p
-                className="text-sm text-muted-foreground pl-1"
-                data-ocid={`notifications.${key}.empty_state`}
-              >
-                Bu kategoride aktif bildirim yok.
+        notifications.length > 0 &&
+        filteredNotifications.length === 0 && (
+          <Card data-ocid="notifications.filter.empty_state">
+            <CardContent className="pt-12 pb-12 flex flex-col items-center gap-3 text-center">
+              <Bell className="w-10 h-10 text-muted-foreground/30" />
+              <p className="text-muted-foreground text-sm">
+                Bu filtrede bildirim yok.
               </p>
-            ) : (
-              <div className="space-y-2">
-                {byCategory[key].map((item, idx) => (
-                  <Card
-                    key={item.id}
-                    className={`transition-opacity ${readAll ? "opacity-50" : ""}`}
-                    data-ocid={`notifications.${key}.item.${idx + 1}`}
-                  >
-                    <CardContent className="p-4">
-                      <div className="flex items-start gap-4">
-                        {/* Icon */}
-                        <div className="flex-shrink-0 mt-0.5">
-                          <SeverityIcon severity={item.severity} />
-                        </div>
+            </CardContent>
+          </Card>
+        )}
 
-                        {/* Content */}
-                        <div className="flex-1 min-w-0">
-                          <p className="font-semibold text-sm leading-snug">
-                            {item.title}
-                          </p>
-                          <p className="text-muted-foreground text-xs mt-0.5 truncate">
-                            {item.description}
-                          </p>
-                          <p className="text-muted-foreground/60 text-xs mt-1">
-                            {item.date}
-                          </p>
-                        </div>
+      {/* Notifications list */}
+      {!loading && filteredNotifications.length > 0 && (
+        <div className="space-y-2">
+          {filteredNotifications.map((item, idx) => {
+            const isRead = readIds.has(item.id);
+            return (
+              <Card
+                key={item.id}
+                className={`transition-all cursor-pointer ${
+                  isRead ? "opacity-50" : "hover:shadow-sm"
+                }`}
+                onClick={() => handleMarkRead(item.id)}
+                data-ocid={`notifications.item.${idx + 1}`}
+              >
+                <CardContent className="p-4">
+                  <div className="flex items-start gap-4">
+                    {/* Icon */}
+                    <div className="flex-shrink-0 mt-0.5">
+                      {categoryIcon[item.category]}
+                    </div>
 
-                        {/* Actions */}
-                        <div className="flex items-center gap-2 flex-shrink-0">
-                          <span
-                            className={`text-xs px-2 py-1 rounded-full font-medium ${
-                              severityBadge[item.severity]
-                            }`}
-                          >
-                            {severityLabel[item.severity]}
-                          </span>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="text-xs h-7"
-                            onClick={() => navigate(item.targetPage)}
-                            data-ocid={`notifications.${key}.button.${idx + 1}`}
-                          >
-                            Git
-                          </Button>
-                        </div>
+                    {/* Content */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="font-semibold text-sm leading-snug">
+                          {item.title}
+                        </p>
+                        {!isRead && (
+                          <span className="w-2 h-2 rounded-full bg-primary flex-shrink-0" />
+                        )}
                       </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
-          </section>
-        ))}
+                      <p className="text-muted-foreground text-xs mt-0.5">
+                        {item.description}
+                      </p>
+                      {item.date && (
+                        <p className="text-muted-foreground/60 text-xs mt-1">
+                          {item.date}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <span
+                        className={`text-xs px-2 py-1 rounded-full font-medium ${
+                          severityBadge[item.severity]
+                        }`}
+                      >
+                        {severityLabel[item.severity]}
+                      </span>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-xs h-7"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(item.targetPage);
+                        }}
+                        data-ocid={`notifications.button.${idx + 1}`}
+                      >
+                        Git
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

@@ -36,6 +36,7 @@ import {
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { useActor } from "@/hooks/useActor";
+import { logActivity } from "@/pages/ActivityLog";
 import {
   ChevronDown,
   ClipboardList,
@@ -188,6 +189,13 @@ export default function Tasks({ session }: Props) {
         form.priority,
       );
       toast.success("G\u00f6rev eklendi!");
+      logActivity(
+        session.companyId,
+        session.personnelId,
+        "G\u00f6rev Olu\u015fturuldu",
+        "task",
+        form.title,
+      );
       setDialogOpen(false);
       setForm({
         title: "",
@@ -276,6 +284,13 @@ export default function Tasks({ session }: Props) {
     try {
       await api.deleteTask(BigInt(task.id));
       setTasks((prev) => prev.filter((t) => t.id !== task.id));
+      logActivity(
+        session.companyId,
+        session.personnelId,
+        "G\u00f6rev Silindi",
+        "task",
+        task.title,
+      );
       toast.success("G\u00f6rev silindi.");
     } catch {
       toast.error("G\u00f6rev silinirken hata olu\u015ftu.");
@@ -726,124 +741,229 @@ export default function Tasks({ session }: Props) {
           </CardContent>
         </Card>
       ) : (
-        <div className="rounded-lg border border-border overflow-hidden">
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-muted/50">
-                <TableHead>Ba\u015fl\u0131k</TableHead>
-                <TableHead className="hidden md:table-cell">
-                  \u00d6ncelik
-                </TableHead>
-                <TableHead className="hidden md:table-cell">Proje</TableHead>
-                <TableHead className="hidden md:table-cell">Atanan</TableHead>
-                <TableHead className="hidden md:table-cell">
-                  Son Tarih
-                </TableHead>
-                <TableHead>Durum</TableHead>
-                <TableHead className="w-44">\u0130\u015flemler</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredTasks.map((task, idx) => {
-                const st = statusConfig[task.status] ?? {
-                  label: task.status,
-                  cls: "bg-gray-100 text-gray-600 border-gray-200",
-                };
-                const priority = priorityMap[String(task.id)] || "medium";
-                const pr = priorityConfig[priority] ?? priorityConfig.medium;
-                return (
-                  <TableRow
-                    key={String(task.id)}
-                    data-ocid={`tasks.item.${idx + 1}`}
-                  >
-                    <TableCell className="font-medium">{task.title}</TableCell>
-                    <TableCell className="hidden md:table-cell">
-                      <span
-                        className={`text-xs px-2 py-1 rounded-full font-medium border ${pr.cls}`}
-                      >
-                        {pr.label}
+        <>
+          {/* Mobile card view */}
+          <div className="md:hidden space-y-3">
+            {filteredTasks.map((task, idx) => {
+              const st = statusConfig[task.status] ?? {
+                label: task.status,
+                cls: "bg-gray-100 text-gray-600 border-gray-200",
+              };
+              const priority = priorityMap[String(task.id)] || "medium";
+              const pr = priorityConfig[priority] ?? priorityConfig.medium;
+              return (
+                <div
+                  key={String(task.id)}
+                  className="bg-white rounded-xl p-4 shadow-sm border border-border"
+                  data-ocid={`tasks.item.${idx + 1}`}
+                >
+                  <div className="flex items-start justify-between mb-2">
+                    <p className="font-semibold text-sm flex-1 mr-2">
+                      {task.title}
+                    </p>
+                    <span
+                      className={`text-xs px-2 py-1 rounded-full font-medium border flex-shrink-0 ${st.cls}`}
+                    >
+                      {st.label}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <span
+                      className={`text-xs px-2 py-0.5 rounded-full font-medium border ${pr.cls}`}
+                    >
+                      {pr.label}
+                    </span>
+                    {task.projectId && (
+                      <span className="text-xs text-muted-foreground truncate">
+                        {projectMap[task.projectId] ?? task.projectId}
                       </span>
-                    </TableCell>
-                    <TableCell className="hidden md:table-cell text-muted-foreground">
-                      {projectMap[task.projectId] ?? task.projectId}
-                    </TableCell>
-                    <TableCell className="hidden md:table-cell text-muted-foreground">
-                      {task.assigneeId || "\u2014"}
-                    </TableCell>
-                    <TableCell className="hidden md:table-cell text-muted-foreground">
-                      {task.dueDate || "\u2014"}
-                    </TableCell>
-                    <TableCell>
-                      <span
-                        className={`text-xs px-2 py-1 rounded-full font-medium border ${st.cls}`}
-                      >
-                        {st.label}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="text-xs"
-                              data-ocid={`tasks.status.${idx + 1}`}
-                            >
-                              Durum <ChevronDown className="w-3 h-3 ml-1" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent>
-                            {statusOptions.map((s) => (
-                              <DropdownMenuItem
-                                key={s.value}
-                                onClick={() =>
-                                  handleStatusChange(task, s.value)
-                                }
+                    )}
+                  </div>
+                  {(task.assigneeId || task.dueDate) && (
+                    <div className="text-xs text-muted-foreground mb-3 space-y-0.5">
+                      {task.assigneeId && <p>👤 {task.assigneeId}</p>}
+                      {task.dueDate && <p>📅 {task.dueDate}</p>}
+                    </div>
+                  )}
+                  <div className="flex flex-wrap gap-1.5">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-xs h-7"
+                          data-ocid={`tasks.status.${idx + 1}`}
+                        >
+                          Durum <ChevronDown className="w-3 h-3 ml-1" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent>
+                        {statusOptions.map((s) => (
+                          <DropdownMenuItem
+                            key={s.value}
+                            onClick={() => handleStatusChange(task, s.value)}
+                          >
+                            {s.label}
+                          </DropdownMenuItem>
+                        ))}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-xs h-7 px-2"
+                      onClick={() => handleOpenNotes(task)}
+                      data-ocid={`tasks.notes.${idx + 1}`}
+                      title="Notlar"
+                    >
+                      <MessageSquare className="w-3.5 h-3.5" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-xs h-7 px-2"
+                      onClick={() => handleOpenEdit(task)}
+                      data-ocid={`tasks.edit_button.${idx + 1}`}
+                      title="Düzenle"
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-xs h-7 px-2 text-red-600 hover:text-red-700 hover:bg-red-50"
+                      onClick={() => handleDelete(task)}
+                      data-ocid={`tasks.delete_button.${idx + 1}`}
+                      title="Sil"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <div className="hidden md:block rounded-lg border border-border overflow-hidden">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/50">
+                  <TableHead>Ba\u015fl\u0131k</TableHead>
+                  <TableHead className="hidden md:table-cell">
+                    \u00d6ncelik
+                  </TableHead>
+                  <TableHead className="hidden md:table-cell">Proje</TableHead>
+                  <TableHead className="hidden md:table-cell">Atanan</TableHead>
+                  <TableHead className="hidden md:table-cell">
+                    Son Tarih
+                  </TableHead>
+                  <TableHead>Durum</TableHead>
+                  <TableHead className="w-44">\u0130\u015flemler</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredTasks.map((task, idx) => {
+                  const st = statusConfig[task.status] ?? {
+                    label: task.status,
+                    cls: "bg-gray-100 text-gray-600 border-gray-200",
+                  };
+                  const priority = priorityMap[String(task.id)] || "medium";
+                  const pr = priorityConfig[priority] ?? priorityConfig.medium;
+                  return (
+                    <TableRow
+                      key={String(task.id)}
+                      data-ocid={`tasks.item.${idx + 1}`}
+                    >
+                      <TableCell className="font-medium">
+                        {task.title}
+                      </TableCell>
+                      <TableCell className="hidden md:table-cell">
+                        <span
+                          className={`text-xs px-2 py-1 rounded-full font-medium border ${pr.cls}`}
+                        >
+                          {pr.label}
+                        </span>
+                      </TableCell>
+                      <TableCell className="hidden md:table-cell text-muted-foreground">
+                        {projectMap[task.projectId] ?? task.projectId}
+                      </TableCell>
+                      <TableCell className="hidden md:table-cell text-muted-foreground">
+                        {task.assigneeId || "\u2014"}
+                      </TableCell>
+                      <TableCell className="hidden md:table-cell text-muted-foreground">
+                        {task.dueDate || "\u2014"}
+                      </TableCell>
+                      <TableCell>
+                        <span
+                          className={`text-xs px-2 py-1 rounded-full font-medium border ${st.cls}`}
+                        >
+                          {st.label}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="text-xs"
+                                data-ocid={`tasks.status.${idx + 1}`}
                               >
-                                {s.label}
-                              </DropdownMenuItem>
-                            ))}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="text-xs px-2"
-                          onClick={() => handleOpenNotes(task)}
-                          data-ocid={`tasks.notes.${idx + 1}`}
-                          title="Notlar"
-                        >
-                          <MessageSquare className="w-3.5 h-3.5" />
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="text-xs px-2"
-                          onClick={() => handleOpenEdit(task)}
-                          data-ocid={`tasks.edit_button.${idx + 1}`}
-                          title="D\u00fczenle"
-                        >
-                          <Pencil className="w-3.5 h-3.5" />
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="text-xs px-2 text-red-600 hover:text-red-700 hover:bg-red-50"
-                          onClick={() => handleDelete(task)}
-                          data-ocid={`tasks.delete_button.${idx + 1}`}
-                          title="Sil"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </div>
+                                Durum <ChevronDown className="w-3 h-3 ml-1" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent>
+                              {statusOptions.map((s) => (
+                                <DropdownMenuItem
+                                  key={s.value}
+                                  onClick={() =>
+                                    handleStatusChange(task, s.value)
+                                  }
+                                >
+                                  {s.label}
+                                </DropdownMenuItem>
+                              ))}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-xs px-2"
+                            onClick={() => handleOpenNotes(task)}
+                            data-ocid={`tasks.notes.${idx + 1}`}
+                            title="Notlar"
+                          >
+                            <MessageSquare className="w-3.5 h-3.5" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-xs px-2"
+                            onClick={() => handleOpenEdit(task)}
+                            data-ocid={`tasks.edit_button.${idx + 1}`}
+                            title="D\u00fczenle"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-xs px-2 text-red-600 hover:text-red-700 hover:bg-red-50"
+                            onClick={() => handleDelete(task)}
+                            data-ocid={`tasks.delete_button.${idx + 1}`}
+                            title="Sil"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
+        </>
       )}
     </div>
   );

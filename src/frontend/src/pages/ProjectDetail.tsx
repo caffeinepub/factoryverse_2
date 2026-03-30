@@ -16,6 +16,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -33,6 +34,7 @@ import {
   ClipboardList,
   DollarSign,
   Loader2,
+  PiggyBank,
   Plus,
   Trash2,
   Users,
@@ -129,6 +131,12 @@ export default function ProjectDetail({ session, projectId, navigate }: Props) {
   const [loading, setLoading] = useState(true);
   const [statusUpdating, setStatusUpdating] = useState(false);
 
+  // Budget state
+  const [budget, setBudget] = useState(0);
+  const [budgetLoading, setBudgetLoading] = useState(false);
+  const [budgetInput, setBudgetInput] = useState("");
+  const [budgetSaving, setBudgetSaving] = useState(false);
+
   const [assignDialogOpen, setAssignDialogOpen] = useState(false);
   const [selectedPersonnelId, setSelectedPersonnelId] = useState("");
   const [selectedRole, setSelectedRole] = useState("Üye");
@@ -195,6 +203,40 @@ export default function ProjectDetail({ session, projectId, navigate }: Props) {
   useEffect(() => {
     load();
   }, [session.companyId, projectId, api]);
+
+  // Load budget separately after actor ready
+  // biome-ignore lint/correctness/useExhaustiveDependencies: actor stabilizes after init
+  useEffect(() => {
+    if (!api || !projectId) return;
+    setBudgetLoading(true);
+    api
+      .getProjectBudget(projectId)
+      .then((val: number | null) => {
+        const b = val ?? 0;
+        setBudget(b);
+        setBudgetInput(b > 0 ? String(b) : "");
+      })
+      .catch(() => {})
+      .finally(() => setBudgetLoading(false));
+  }, [projectId, api]);
+
+  const handleSaveBudget = async () => {
+    const val = Number.parseFloat(budgetInput);
+    if (!budgetInput || Number.isNaN(val) || val < 0) {
+      toast.error("Geçerli bir bütçe miktarı girin.");
+      return;
+    }
+    setBudgetSaving(true);
+    try {
+      await api.setProjectBudget(projectId, val);
+      setBudget(val);
+      toast.success("Bütçe kaydedildi.");
+    } catch {
+      toast.error("Bütçe kaydedilemedi.");
+    } finally {
+      setBudgetSaving(false);
+    }
+  };
 
   const handleAssign = async () => {
     if (!selectedPersonnelId) {
@@ -308,6 +350,18 @@ export default function ProjectDetail({ session, projectId, navigate }: Props) {
     cls: "bg-gray-100 text-gray-600",
   };
 
+  const totalCost = sum();
+  const budgetPct = budget > 0 ? Math.min((totalCost / budget) * 100, 100) : 0;
+  const budgetExceeded = budget > 0 && totalCost > budget;
+  const barColor =
+    budget === 0
+      ? "bg-gray-300"
+      : budgetExceeded
+        ? "bg-red-500"
+        : budgetPct >= 80
+          ? "bg-yellow-400"
+          : "bg-green-500";
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -402,6 +456,142 @@ export default function ProjectDetail({ session, projectId, navigate }: Props) {
           ))}
         </div>
       </div>
+
+      {/* Budget widget */}
+      <Card data-ocid="project-detail.budget.card">
+        <CardHeader className="pb-3">
+          <CardTitle
+            className="text-base flex items-center gap-2"
+            style={{ fontFamily: "'Bricolage Grotesque', sans-serif" }}
+          >
+            <PiggyBank className="w-4 h-4 text-primary" />
+            Bütçe Durumu
+            {budgetLoading && (
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground ml-1" />
+            )}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {budget > 0 ? (
+            <div className="space-y-3">
+              {/* Budget exceeded warning */}
+              {budgetExceeded && (
+                <div
+                  className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 rounded-lg px-3 py-2"
+                  data-ocid="project-detail.budget.error_state"
+                >
+                  <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+                  <span className="text-sm font-semibold">Bütçe aşıldı!</span>
+                  <span className="text-xs ml-auto">
+                    +{fmt(totalCost - budget)}
+                  </span>
+                </div>
+              )}
+
+              {/* Progress bar */}
+              <div className="space-y-1.5">
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>Kullanım</span>
+                  <span
+                    className={
+                      budgetExceeded ? "text-red-600 font-semibold" : ""
+                    }
+                  >
+                    %{Math.round((totalCost / budget) * 100)}
+                  </span>
+                </div>
+                <div className="w-full h-2.5 rounded-full bg-gray-100 overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all duration-500 ${barColor}`}
+                    style={{ width: `${budgetPct}%` }}
+                  />
+                </div>
+              </div>
+
+              {/* Amounts row */}
+              <div className="grid grid-cols-3 gap-2 text-center">
+                <div className="rounded-lg bg-gray-50 px-2 py-2">
+                  <p className="text-xs text-muted-foreground mb-0.5">Bütçe</p>
+                  <p
+                    className="text-sm font-bold text-foreground"
+                    style={{ fontFamily: "'Bricolage Grotesque', sans-serif" }}
+                  >
+                    {fmt(budget)}
+                  </p>
+                </div>
+                <div className="rounded-lg bg-gray-50 px-2 py-2">
+                  <p className="text-xs text-muted-foreground mb-0.5">
+                    Harcanan
+                  </p>
+                  <p
+                    className={`text-sm font-bold ${
+                      budgetExceeded ? "text-red-600" : "text-foreground"
+                    }`}
+                    style={{ fontFamily: "'Bricolage Grotesque', sans-serif" }}
+                  >
+                    {fmt(totalCost)}
+                  </p>
+                </div>
+                <div className="rounded-lg bg-gray-50 px-2 py-2">
+                  <p className="text-xs text-muted-foreground mb-0.5">Kalan</p>
+                  <p
+                    className={`text-sm font-bold ${
+                      budgetExceeded ? "text-red-600" : "text-green-600"
+                    }`}
+                    style={{ fontFamily: "'Bricolage Grotesque', sans-serif" }}
+                  >
+                    {budgetExceeded ? "-" : ""}
+                    {fmt(Math.abs(budget - totalCost))}
+                  </p>
+                </div>
+              </div>
+            </div>
+          ) : (
+            !isAdmin && (
+              <p
+                className="text-sm text-muted-foreground"
+                data-ocid="project-detail.budget.empty_state"
+              >
+                Bütçe belirlenmemiş
+              </p>
+            )
+          )}
+
+          {/* Admin: set/update budget */}
+          {isAdmin && (
+            <div className="flex items-center gap-2 pt-1 border-t border-border">
+              <div className="flex-1">
+                <Label className="text-xs text-muted-foreground mb-1 block">
+                  {budget > 0 ? "Bütçeyi Güncelle" : "Bütçe Belirle"} (₺)
+                </Label>
+                <Input
+                  type="number"
+                  min="0"
+                  step="1000"
+                  placeholder="Örn: 500000"
+                  value={budgetInput}
+                  onChange={(e) => setBudgetInput(e.target.value)}
+                  className="h-8 text-sm"
+                  data-ocid="project-detail.budget.input"
+                />
+              </div>
+              <Button
+                size="sm"
+                className="mt-5"
+                onClick={handleSaveBudget}
+                disabled={budgetSaving || !budgetInput}
+                data-ocid="project-detail.budget.save_button"
+              >
+                {budgetSaving ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  "Kaydet"
+                )}
+              </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Project Team section */}
       <div>

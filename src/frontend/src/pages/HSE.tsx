@@ -478,132 +478,237 @@ export default function HSE({ session }: Props) {
               <p className="text-sm">Henüz İSG kaydı eklenmedi</p>
             </div>
           ) : (
-            <div className="overflow-x-auto" data-ocid="hse.table">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Tür</TableHead>
-                    <TableHead>Başlık</TableHead>
-                    <TableHead className="hidden md:table-cell">
-                      Açıklama
-                    </TableHead>
-                    <TableHead>Önem</TableHead>
-                    <TableHead>Durum</TableHead>
-                    <TableHead className="hidden sm:table-cell">
-                      Bildiren
-                    </TableHead>
-                    <TableHead className="hidden sm:table-cell">
-                      Tarih
-                    </TableHead>
-                    <TableHead className={canEdit ? "w-32" : "w-24"}>
-                      İşlemler
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {records.map((rec, idx) => {
-                    const t = typeMap[rec.hseType] ?? {
-                      label: rec.hseType,
-                      cls: "bg-gray-100 text-gray-600",
-                    };
-                    const s = severityMap[rec.severity] ?? {
-                      label: rec.severity,
-                      cls: "bg-gray-100 text-gray-600",
-                    };
-                    return (
-                      <TableRow key={rec.id} data-ocid={`hse.item.${idx + 1}`}>
-                        <TableCell>
-                          <Badge variant="secondary" className={t.cls}>
-                            {t.label}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="font-medium">
-                          {rec.title}
-                        </TableCell>
-                        <TableCell className="hidden md:table-cell text-muted-foreground text-sm max-w-[200px] truncate">
-                          {rec.description || "—"}
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="secondary" className={s.cls}>
-                            {s.label}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <Badge
-                            variant="secondary"
-                            className={
-                              rec.status === "açık"
-                                ? "bg-red-100 text-red-700"
-                                : "bg-green-100 text-green-700"
-                            }
-                          >
-                            {rec.status}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="hidden sm:table-cell text-muted-foreground text-sm">
-                          {rec.reportedBy}
-                        </TableCell>
-                        <TableCell className="hidden sm:table-cell text-muted-foreground text-sm">
-                          {formatDate(rec.createdAt)}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-1">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="text-xs h-7"
-                              onClick={() => handleToggleStatus(rec)}
-                              disabled={togglingId === rec.id}
-                              data-ocid={`hse.toggle.${idx + 1}`}
+            <>
+              {/* Mobile card view */}
+              <div className="md:hidden p-4 space-y-3">
+                {records.map((rec, idx) => {
+                  const t = typeMap[rec.hseType] ?? {
+                    label: rec.hseType,
+                    cls: "bg-gray-100 text-gray-600",
+                  };
+                  const s = severityMap[rec.severity] ?? {
+                    label: rec.severity,
+                    cls: "bg-gray-100 text-gray-600",
+                  };
+                  return (
+                    <div
+                      key={rec.id}
+                      className="bg-white rounded-xl p-4 shadow-sm border border-border"
+                      data-ocid={`hse.item.${idx + 1}`}
+                    >
+                      <div className="flex items-start justify-between mb-2">
+                        <div className="flex-1 mr-2">
+                          <div className="flex items-center gap-2 flex-wrap mb-1">
+                            <Badge variant="secondary" className={t.cls}>
+                              {t.label}
+                            </Badge>
+                            <Badge
+                              variant="secondary"
+                              className={
+                                rec.status === "açık"
+                                  ? "bg-red-100 text-red-700"
+                                  : "bg-green-100 text-green-700"
+                              }
                             >
-                              {togglingId === rec.id ? (
-                                <Loader2 className="w-3 h-3 animate-spin" />
-                              ) : rec.status === "açık" ? (
-                                "Kapat"
+                              {rec.status}
+                            </Badge>
+                          </div>
+                          <p className="font-semibold text-sm">{rec.title}</p>
+                        </div>
+                        <Badge variant="secondary" className={s.cls}>
+                          {s.label}
+                        </Badge>
+                      </div>
+                      {rec.description && (
+                        <p className="text-xs text-muted-foreground mb-2 line-clamp-2">
+                          {rec.description}
+                        </p>
+                      )}
+                      <div className="text-xs text-muted-foreground mb-3 space-y-0.5">
+                        {rec.reportedBy && <p>👤 {rec.reportedBy}</p>}
+                        <p>📅 {formatDate(rec.createdAt)}</p>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-xs h-7"
+                          onClick={() => handleToggleStatus(rec)}
+                          disabled={togglingId === rec.id}
+                          data-ocid={`hse.toggle.${idx + 1}`}
+                        >
+                          {togglingId === rec.id ? (
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                          ) : rec.status === "açık" ? (
+                            "Kapat"
+                          ) : (
+                            "Aç"
+                          )}
+                        </Button>
+                        {canEdit && (
+                          <>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-muted-foreground hover:text-primary"
+                              onClick={() => openEdit(rec)}
+                              data-ocid={`hse.edit_button.${idx + 1}`}
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-red-400 hover:text-red-600 hover:bg-red-50"
+                              onClick={() => handleDelete(rec)}
+                              disabled={deletingId === rec.id}
+                              data-ocid={`hse.delete_button.${idx + 1}`}
+                            >
+                              {deletingId === rec.id ? (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
                               ) : (
-                                "Aç"
+                                <Trash2 className="w-3.5 h-3.5" />
                               )}
                             </Button>
-                            {canEdit && (
-                              <>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-7 w-7 text-muted-foreground hover:text-primary"
-                                  onClick={() => openEdit(rec)}
-                                  data-ocid={`hse.edit_button.${idx + 1}`}
-                                >
-                                  <Pencil className="w-3.5 h-3.5" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-7 w-7 text-red-400 hover:text-red-600 hover:bg-red-50"
-                                  onClick={() => handleDelete(rec)}
-                                  disabled={deletingId === rec.id}
-                                  data-ocid={`hse.delete_button.${idx + 1}`}
-                                >
-                                  {deletingId === rec.id ? (
-                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                  ) : (
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                  )}
-                                </Button>
-                              </>
-                            )}
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              {/* Desktop table */}
+              <div
+                className="hidden md:block overflow-x-auto"
+                data-ocid="hse.table"
+              >
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Tür</TableHead>
+                      <TableHead>Başlık</TableHead>
+                      <TableHead className="hidden md:table-cell">
+                        Açıklama
+                      </TableHead>
+                      <TableHead>Önem</TableHead>
+                      <TableHead>Durum</TableHead>
+                      <TableHead className="hidden sm:table-cell">
+                        Bildiren
+                      </TableHead>
+                      <TableHead className="hidden sm:table-cell">
+                        Tarih
+                      </TableHead>
+                      <TableHead className={canEdit ? "w-32" : "w-24"}>
+                        İşlemler
+                      </TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {records.map((rec, idx) => {
+                      const t = typeMap[rec.hseType] ?? {
+                        label: rec.hseType,
+                        cls: "bg-gray-100 text-gray-600",
+                      };
+                      const s = severityMap[rec.severity] ?? {
+                        label: rec.severity,
+                        cls: "bg-gray-100 text-gray-600",
+                      };
+                      return (
+                        <TableRow
+                          key={rec.id}
+                          data-ocid={`hse.item.${idx + 1}`}
+                        >
+                          <TableCell>
+                            <Badge variant="secondary" className={t.cls}>
+                              {t.label}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="font-medium">
+                            {rec.title}
+                          </TableCell>
+                          <TableCell className="hidden md:table-cell text-muted-foreground text-sm max-w-[200px] truncate">
+                            {rec.description || "—"}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="secondary" className={s.cls}>
+                              {s.label}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Badge
+                              variant="secondary"
+                              className={
+                                rec.status === "açık"
+                                  ? "bg-red-100 text-red-700"
+                                  : "bg-green-100 text-green-700"
+                              }
+                            >
+                              {rec.status}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="hidden sm:table-cell text-muted-foreground text-sm">
+                            {rec.reportedBy}
+                          </TableCell>
+                          <TableCell className="hidden sm:table-cell text-muted-foreground text-sm">
+                            {formatDate(rec.createdAt)}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-1">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="text-xs h-7"
+                                onClick={() => handleToggleStatus(rec)}
+                                disabled={togglingId === rec.id}
+                                data-ocid={`hse.toggle.${idx + 1}`}
+                              >
+                                {togglingId === rec.id ? (
+                                  <Loader2 className="w-3 h-3 animate-spin" />
+                                ) : rec.status === "açık" ? (
+                                  "Kapat"
+                                ) : (
+                                  "Aç"
+                                )}
+                              </Button>
+                              {canEdit && (
+                                <>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7 text-muted-foreground hover:text-primary"
+                                    onClick={() => openEdit(rec)}
+                                    data-ocid={`hse.edit_button.${idx + 1}`}
+                                  >
+                                    <Pencil className="w-3.5 h-3.5" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7 text-red-400 hover:text-red-600 hover:bg-red-50"
+                                    onClick={() => handleDelete(rec)}
+                                    disabled={deletingId === rec.id}
+                                    data-ocid={`hse.delete_button.${idx + 1}`}
+                                  >
+                                    {deletingId === rec.id ? (
+                                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                    ) : (
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    )}
+                                  </Button>
+                                </>
+                              )}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>
-
-      {/* Edit Dialog */}
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent data-ocid="hse.edit_dialog">
           <DialogHeader>

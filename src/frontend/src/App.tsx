@@ -31,7 +31,9 @@ export type Page =
   | "project-detail"
   | "reports"
   | "suppliers"
-  | "attendance";
+  | "attendance"
+  | "activity-log"
+  | "shifts";
 
 export interface Session {
   companyId: string;
@@ -127,6 +129,7 @@ export default function App() {
         navigate={navigate}
         onLogout={handleLogout}
         targetMachineId={targetMachineId}
+        setTargetMachineId={setTargetMachineId}
         targetPersonnelId={targetPersonnelId}
         setTargetPersonnelId={setTargetPersonnelId}
         targetProjectId={targetProjectId}

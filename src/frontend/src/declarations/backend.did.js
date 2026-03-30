@@ -630,7 +630,15 @@ export const idlFactory = ({ IDL }) => {
     'listSpareParts' : IDL.Func([IDL.Text], [IDL.Vec(IDL.Record({'id':IDL.Text,'companyId':IDL.Text,'machineId':IDL.Text,'name':IDL.Text,'partCode':IDL.Text,'quantity':IDL.Nat,'unit':IDL.Text,'minStock':IDL.Nat,'supplier':IDL.Text,'notes':IDL.Text,'createdAt':IDL.Int}))], ['query']),
     'updateSparePart' : IDL.Func([IDL.Text, IDL.Text, IDL.Text, IDL.Nat, IDL.Text, IDL.Nat, IDL.Text, IDL.Text], [], []),
     'deleteSparePart' : IDL.Func([IDL.Text], [], []),
-  });
+  // Sürüm 30-B
+    'addShift' : IDL.Func([IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text], [IDL.Text], []),
+    'listShifts' : IDL.Func([IDL.Text], [IDL.Vec(IDL.Record({'id':IDL.Text,'companyId':IDL.Text,'personnelId':IDL.Text,'shiftType':IDL.Text,'date':IDL.Text,'note':IDL.Text,'createdAt':IDL.Int}))], ['query']),
+    'updateShift' : IDL.Func([IDL.Text, IDL.Text, IDL.Text, IDL.Text], [], []),
+    'deleteShift' : IDL.Func([IDL.Text], [], []),
+  // Sürüm 31-A
+    'setProjectBudget' : IDL.Func([IDL.Text, IDL.Float64], [], []),
+    'getProjectBudget' : IDL.Func([IDL.Text], [IDL.Opt(IDL.Float64)], ['query']),
+    });
 };
 
 export const init = ({ IDL }) => { return []; };

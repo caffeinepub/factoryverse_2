@@ -2,6 +2,16 @@ import type { Principal } from "@icp-sdk/core/principal";
 export interface Some<T> {
     __kind__: "Some";
     value: T;
+    // Sürüm 30-B
+    addShift(companyId: string, personnelId: string, shiftType: string, date: string, note: string): Promise<string>;
+    listShifts(companyId: string): Promise<Array<Shift>>;
+    updateShift(shiftId: string, shiftType: string, date: string, note: string): Promise<void>;
+    deleteShift(shiftId: string): Promise<void>;
+
+    // Sürüm 31-A
+    setProjectBudget(projectId: string, budget: number): Promise<void>;
+    getProjectBudget(projectId: string): Promise<number | null>;
+
 }
 export interface None {
     __kind__: "None";
@@ -319,5 +329,17 @@ export interface SparePart {
     minStock: bigint;
     supplier: string;
     notes: string;
+    createdAt: Timestamp;
+}
+
+// Sürüm 30-B additions
+export type ShiftId = string;
+export interface Shift {
+    id: ShiftId;
+    companyId: string;
+    personnelId: string;
+    shiftType: string;
+    date: string;
+    note: string;
     createdAt: Timestamp;
 }

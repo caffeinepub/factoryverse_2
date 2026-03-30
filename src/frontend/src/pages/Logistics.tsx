@@ -455,132 +455,238 @@ export default function Logistics({ session }: Props) {
               </p>
             </div>
           ) : (
-            <div className="overflow-x-auto" data-ocid="logistics.table">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Başlık</TableHead>
-                    <TableHead>Güzergah</TableHead>
-                    <TableHead className="hidden md:table-cell">
-                      Taşıyıcı
-                    </TableHead>
-                    <TableHead className="hidden sm:table-cell">
-                      Sevk Tarihi
-                    </TableHead>
-                    <TableHead className="hidden sm:table-cell">
-                      Tah. Teslim
-                    </TableHead>
-                    <TableHead>Durum</TableHead>
-                    <TableHead className="w-36">Durum Güncelle</TableHead>
-                    {canEdit && <TableHead className="w-20">İşlem</TableHead>}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filtered.map((ship, idx) => {
-                    const st = statusMap[ship.status] ?? {
-                      label: ship.status,
-                      cls: "bg-gray-100 text-gray-600",
-                    };
-                    return (
-                      <TableRow
-                        key={ship.id}
-                        data-ocid={`logistics.item.${idx + 1}`}
-                      >
-                        <TableCell className="font-medium">
-                          {ship.title}
+            <>
+              {/* Mobile card view */}
+              <div className="md:hidden p-4 space-y-3">
+                {filtered.map((ship, idx) => {
+                  const st = statusMap[ship.status] ?? {
+                    label: ship.status,
+                    cls: "bg-gray-100 text-gray-600",
+                  };
+                  return (
+                    <div
+                      key={ship.id}
+                      className="bg-white rounded-xl p-4 shadow-sm border border-border"
+                      data-ocid={`logistics.item.${idx + 1}`}
+                    >
+                      <div className="flex items-start justify-between mb-2">
+                        <div className="flex-1 mr-2">
+                          <p className="font-semibold text-sm">{ship.title}</p>
                           {ship.machineId && (
-                            <span className="block text-xs text-muted-foreground font-mono">
+                            <p className="text-xs font-mono text-muted-foreground">
                               {ship.machineId}
-                            </span>
+                            </p>
                           )}
-                        </TableCell>
-                        <TableCell className="text-sm">
-                          <span className="flex items-center gap-1 text-muted-foreground">
-                            <span>{ship.fromLocation || "—"}</span>
-                            <ArrowRight className="w-3 h-3 flex-shrink-0" />
-                            <span>{ship.toLocation || "—"}</span>
-                          </span>
-                        </TableCell>
-                        <TableCell className="hidden md:table-cell text-sm text-muted-foreground">
-                          {ship.carrier || "—"}
-                        </TableCell>
-                        <TableCell className="hidden sm:table-cell text-sm text-muted-foreground">
-                          {formatDate(ship.shipDate)}
-                        </TableCell>
-                        <TableCell className="hidden sm:table-cell text-sm text-muted-foreground">
-                          {formatDate(ship.estimatedDelivery)}
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="secondary" className={st.cls}>
-                            {st.label}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <Select
-                            value={ship.status}
-                            onValueChange={(v) => handleStatusChange(ship, v)}
-                            disabled={updatingId === ship.id}
+                        </div>
+                        <Badge variant="secondary" className={st.cls}>
+                          {st.label}
+                        </Badge>
+                      </div>
+                      <div className="flex items-center gap-1 text-xs text-muted-foreground mb-2">
+                        <span>{ship.fromLocation || "—"}</span>
+                        <ArrowRight className="w-3 h-3 flex-shrink-0" />
+                        <span>{ship.toLocation || "—"}</span>
+                      </div>
+                      {ship.carrier && (
+                        <p className="text-xs text-muted-foreground mb-1">
+                          🚛 {ship.carrier}
+                        </p>
+                      )}
+                      {ship.shipDate && (
+                        <p className="text-xs text-muted-foreground mb-3">
+                          📅 {formatDate(ship.shipDate)}
+                        </p>
+                      )}
+                      <div className="flex flex-wrap gap-1.5 items-center">
+                        <Select
+                          value={ship.status}
+                          onValueChange={(v) => handleStatusChange(ship, v)}
+                          disabled={updatingId === ship.id}
+                        >
+                          <SelectTrigger
+                            className="h-7 text-xs w-32"
+                            data-ocid={`logistics.select.${idx + 1}`}
                           >
-                            <SelectTrigger
-                              className="h-8 text-xs w-32"
-                              data-ocid={`logistics.select.${idx + 1}`}
-                            >
-                              {updatingId === ship.id ? (
-                                <Loader2 className="w-3 h-3 animate-spin" />
-                              ) : (
-                                <SelectValue />
-                              )}
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="planned">Planlandı</SelectItem>
-                              <SelectItem value="in-transit">Yolda</SelectItem>
-                              <SelectItem value="delivered">
-                                Teslim Edildi
-                              </SelectItem>
-                              <SelectItem value="cancelled">İptal</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </TableCell>
+                            {updatingId === ship.id ? (
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                            ) : (
+                              <SelectValue />
+                            )}
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="planned">Planlandı</SelectItem>
+                            <SelectItem value="in-transit">Yolda</SelectItem>
+                            <SelectItem value="delivered">
+                              Teslim Edildi
+                            </SelectItem>
+                            <SelectItem value="cancelled">İptal</SelectItem>
+                          </SelectContent>
+                        </Select>
                         {canEdit && (
-                          <TableCell>
-                            <div className="flex items-center gap-1">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 text-muted-foreground hover:text-primary"
-                                onClick={() => openEdit(ship)}
-                                data-ocid={`logistics.edit_button.${idx + 1}`}
-                              >
-                                <Pencil className="w-3.5 h-3.5" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 text-red-400 hover:text-red-600 hover:bg-red-50"
-                                onClick={() => handleDelete(ship)}
-                                disabled={deletingId === ship.id}
-                                data-ocid={`logistics.delete_button.${idx + 1}`}
-                              >
-                                {deletingId === ship.id ? (
-                                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                ) : (
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                )}
-                              </Button>
-                            </div>
-                          </TableCell>
+                          <>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-muted-foreground hover:text-primary"
+                              onClick={() => openEdit(ship)}
+                              data-ocid={`logistics.edit_button.${idx + 1}`}
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-red-400 hover:text-red-600 hover:bg-red-50"
+                              onClick={() => handleDelete(ship)}
+                              disabled={deletingId === ship.id}
+                              data-ocid={`logistics.delete_button.${idx + 1}`}
+                            >
+                              {deletingId === ship.id ? (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              ) : (
+                                <Trash2 className="w-3.5 h-3.5" />
+                              )}
+                            </Button>
+                          </>
                         )}
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              {/* Desktop table */}
+              <div
+                className="hidden md:block overflow-x-auto"
+                data-ocid="logistics.table"
+              >
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Başlık</TableHead>
+                      <TableHead>Güzergah</TableHead>
+                      <TableHead className="hidden md:table-cell">
+                        Taşıyıcı
+                      </TableHead>
+                      <TableHead className="hidden sm:table-cell">
+                        Sevk Tarihi
+                      </TableHead>
+                      <TableHead className="hidden sm:table-cell">
+                        Tah. Teslim
+                      </TableHead>
+                      <TableHead>Durum</TableHead>
+                      <TableHead className="w-36">Durum Güncelle</TableHead>
+                      {canEdit && <TableHead className="w-20">İşlem</TableHead>}
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filtered.map((ship, idx) => {
+                      const st = statusMap[ship.status] ?? {
+                        label: ship.status,
+                        cls: "bg-gray-100 text-gray-600",
+                      };
+                      return (
+                        <TableRow
+                          key={ship.id}
+                          data-ocid={`logistics.item.${idx + 1}`}
+                        >
+                          <TableCell className="font-medium">
+                            {ship.title}
+                            {ship.machineId && (
+                              <span className="block text-xs text-muted-foreground font-mono">
+                                {ship.machineId}
+                              </span>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-sm">
+                            <span className="flex items-center gap-1 text-muted-foreground">
+                              <span>{ship.fromLocation || "—"}</span>
+                              <ArrowRight className="w-3 h-3 flex-shrink-0" />
+                              <span>{ship.toLocation || "—"}</span>
+                            </span>
+                          </TableCell>
+                          <TableCell className="hidden md:table-cell text-sm text-muted-foreground">
+                            {ship.carrier || "—"}
+                          </TableCell>
+                          <TableCell className="hidden sm:table-cell text-sm text-muted-foreground">
+                            {formatDate(ship.shipDate)}
+                          </TableCell>
+                          <TableCell className="hidden sm:table-cell text-sm text-muted-foreground">
+                            {formatDate(ship.estimatedDelivery)}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="secondary" className={st.cls}>
+                              {st.label}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Select
+                              value={ship.status}
+                              onValueChange={(v) => handleStatusChange(ship, v)}
+                              disabled={updatingId === ship.id}
+                            >
+                              <SelectTrigger
+                                className="h-8 text-xs w-32"
+                                data-ocid={`logistics.select.${idx + 1}`}
+                              >
+                                {updatingId === ship.id ? (
+                                  <Loader2 className="w-3 h-3 animate-spin" />
+                                ) : (
+                                  <SelectValue />
+                                )}
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="planned">
+                                  Planlandı
+                                </SelectItem>
+                                <SelectItem value="in-transit">
+                                  Yolda
+                                </SelectItem>
+                                <SelectItem value="delivered">
+                                  Teslim Edildi
+                                </SelectItem>
+                                <SelectItem value="cancelled">İptal</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </TableCell>
+                          {canEdit && (
+                            <TableCell>
+                              <div className="flex items-center gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 text-muted-foreground hover:text-primary"
+                                  onClick={() => openEdit(ship)}
+                                  data-ocid={`logistics.edit_button.${idx + 1}`}
+                                >
+                                  <Pencil className="w-3.5 h-3.5" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 text-red-400 hover:text-red-600 hover:bg-red-50"
+                                  onClick={() => handleDelete(ship)}
+                                  disabled={deletingId === ship.id}
+                                  data-ocid={`logistics.delete_button.${idx + 1}`}
+                                >
+                                  {deletingId === ship.id ? (
+                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                  ) : (
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  )}
+                                </Button>
+                              </div>
+                            </TableCell>
+                          )}
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>
-
-      {/* Edit Dialog */}
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent className="max-w-lg" data-ocid="logistics.edit_dialog">
           <DialogHeader>

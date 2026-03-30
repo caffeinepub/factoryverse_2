@@ -36,6 +36,7 @@ import {
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { useActor } from "@/hooks/useActor";
+import { logActivity } from "@/pages/ActivityLog";
 import {
   CheckCircle2,
   ChevronDown,
@@ -202,6 +203,13 @@ export default function Maintenance({ session }: Props) {
         form.projectId,
       );
       toast.success("Arıza bildirildi!");
+      logActivity(
+        session.companyId,
+        session.personnelId,
+        "Arıza Bildirildi",
+        "failure",
+        form.title,
+      );
       setDialogOpen(false);
       setForm({
         title: "",
@@ -711,158 +719,290 @@ export default function Maintenance({ session }: Props) {
           </CardContent>
         </Card>
       ) : (
-        <div className="rounded-lg border border-border overflow-hidden">
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-muted/50">
-                <TableHead>Başlık</TableHead>
-                <TableHead className="hidden md:table-cell">Makine</TableHead>
-                <TableHead className="hidden lg:table-cell">Proje</TableHead>
-                <TableHead>Önem</TableHead>
-                <TableHead>Durum</TableHead>
-                <TableHead className="hidden md:table-cell">Bildiren</TableHead>
-                <TableHead className="hidden md:table-cell">Tarih</TableHead>
-                <TableHead className="w-36">İşlemler</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {failures.map((f, idx) => {
-                const sev = severityConfig[f.severity] ?? {
-                  label: f.severity,
-                  cls: "bg-gray-100 text-gray-600 border-gray-200",
-                };
-                const st = statusConfig[f.status] ?? {
-                  label: f.status,
-                  cls: "bg-gray-100 text-gray-600 border-gray-200",
-                };
-                const projName = getProjectName(f.projectId);
-                const isLinked = !!linkedFailures[f.id];
-                const resNote = getResolutionNote((f as any).resolvedAt);
-                return (
-                  <TableRow
-                    key={f.id}
-                    data-ocid={`maintenance.item.${idx + 1}`}
-                  >
-                    <TableCell className="font-medium">
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-1.5">
-                          {f.title}
-                          {isLinked && (
-                            <span className="text-xs px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700 font-medium">
-                              Bakıma Bağlı
-                            </span>
-                          )}
-                        </div>
-                        {resNote && (
-                          <p className="text-xs text-muted-foreground italic">
-                            Çözüm: {resNote}
-                          </p>
+        <>
+          {/* Mobile card view */}
+          <div className="md:hidden space-y-3">
+            {failures.map((f, idx) => {
+              const sev = severityConfig[f.severity] ?? {
+                label: f.severity,
+                cls: "bg-gray-100 text-gray-600 border-gray-200",
+              };
+              const st = statusConfig[f.status] ?? {
+                label: f.status,
+                cls: "bg-gray-100 text-gray-600 border-gray-200",
+              };
+              const projName = getProjectName(f.projectId);
+              const isLinked = !!linkedFailures[f.id];
+              return (
+                <div
+                  key={f.id}
+                  className="bg-white rounded-xl p-4 shadow-sm border border-border"
+                  data-ocid={`maintenance.item.${idx + 1}`}
+                >
+                  <div className="flex items-start justify-between mb-2">
+                    <div className="flex-1 mr-2">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <p className="font-semibold text-sm">{f.title}</p>
+                        {isLinked && (
+                          <span className="text-xs px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700 font-medium">
+                            Bakıma Bağlı
+                          </span>
                         )}
                       </div>
-                    </TableCell>
-                    <TableCell className="hidden md:table-cell text-muted-foreground">
-                      {f.machineId || "—"}
-                    </TableCell>
-                    <TableCell className="hidden lg:table-cell">
-                      {projName ? (
-                        <span className="text-xs px-2 py-1 rounded-full bg-indigo-100 text-indigo-700 font-medium">
-                          {projName}
-                        </span>
-                      ) : (
-                        <span className="text-muted-foreground text-xs">—</span>
+                      {f.machineId && (
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          🔧 {f.machineId}
+                        </p>
                       )}
-                    </TableCell>
-                    <TableCell>
-                      <span
-                        className={`text-xs px-2 py-1 rounded-full font-medium border ${sev.cls}`}
-                      >
-                        {sev.label}
+                    </div>
+                    <span
+                      className={`text-xs px-2 py-1 rounded-full font-medium border flex-shrink-0 ${sev.cls}`}
+                    >
+                      {sev.label}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 mb-2 flex-wrap">
+                    <span
+                      className={`text-xs px-2 py-0.5 rounded-full font-medium border ${st.cls}`}
+                    >
+                      {st.label}
+                    </span>
+                    {projName && (
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 font-medium">
+                        {projName}
                       </span>
-                    </TableCell>
-                    <TableCell>
-                      <span
-                        className={`text-xs px-2 py-1 rounded-full font-medium border ${st.cls}`}
-                      >
-                        {st.label}
-                      </span>
-                    </TableCell>
-                    <TableCell className="hidden md:table-cell text-muted-foreground">
-                      {f.reportedBy || "—"}
-                    </TableCell>
-                    <TableCell className="hidden md:table-cell text-muted-foreground">
-                      {formatDate(f.reportedAt)}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="text-xs"
-                              data-ocid={`maintenance.status.${idx + 1}`}
-                            >
-                              Durum <ChevronDown className="w-3 h-3 ml-1" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent>
-                            {statusOptions.map((s) => (
-                              <DropdownMenuItem
-                                key={s.value}
-                                onClick={() =>
-                                  handleStatusChange(f.id, s.value)
-                                }
-                              >
-                                {s.label}
-                              </DropdownMenuItem>
-                            ))}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                    )}
+                  </div>
+                  {(f.reportedBy || formatDate(f.reportedAt)) && (
+                    <p className="text-xs text-muted-foreground mb-3">
+                      {f.reportedBy && <span>👤 {f.reportedBy} </span>}
+                      {formatDate(f.reportedAt) && (
+                        <span>· {formatDate(f.reportedAt)}</span>
+                      )}
+                    </p>
+                  )}
+                  <div className="flex flex-wrap gap-1.5">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
                         <Button
                           variant="outline"
                           size="sm"
-                          className="text-xs px-2"
-                          onClick={() => handleOpenLinkDialog(f)}
-                          data-ocid={`maintenance.link_button.${idx + 1}`}
-                          title="Bakım Planı Bağla"
+                          className="text-xs h-7"
+                          data-ocid={`maintenance.status.${idx + 1}`}
                         >
-                          <Link2 className="w-3.5 h-3.5" />
+                          Durum <ChevronDown className="w-3 h-3 ml-1" />
                         </Button>
-                        {isAdmin && (
-                          <>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="text-xs px-2"
-                              onClick={() => openEditFailure(f)}
-                              data-ocid={`maintenance.edit_button.${idx + 1}`}
-                              title="Düzenle"
-                            >
-                              <Pencil className="w-3.5 h-3.5" />
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="text-xs px-2 text-red-600 hover:text-red-700 hover:bg-red-50"
-                              onClick={() => {
-                                setDeleteFailureTarget(f);
-                                setDeleteFailureOpen(true);
-                              }}
-                              data-ocid={`maintenance.delete_button.${idx + 1}`}
-                              title="Sil"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </Button>
-                          </>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent>
+                        {statusOptions.map((s) => (
+                          <DropdownMenuItem
+                            key={s.value}
+                            onClick={() => handleStatusChange(f.id, s.value)}
+                          >
+                            {s.label}
+                          </DropdownMenuItem>
+                        ))}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-xs h-7 px-2"
+                      onClick={() => handleOpenLinkDialog(f)}
+                      data-ocid={`maintenance.link_button.${idx + 1}`}
+                      title="Bakım Planı Bağla"
+                    >
+                      <Link2 className="w-3.5 h-3.5" />
+                    </Button>
+                    {isAdmin && (
+                      <>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-xs h-7 px-2"
+                          onClick={() => openEditFailure(f)}
+                          data-ocid={`maintenance.edit_button.${idx + 1}`}
+                          title="Düzenle"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-xs h-7 px-2 text-red-600 hover:text-red-700 hover:bg-red-50"
+                          onClick={() => {
+                            setDeleteFailureTarget(f);
+                            setDeleteFailureOpen(true);
+                          }}
+                          data-ocid={`maintenance.delete_button.${idx + 1}`}
+                          title="Sil"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <div className="hidden md:block rounded-lg border border-border overflow-hidden">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/50">
+                  <TableHead>Başlık</TableHead>
+                  <TableHead className="hidden md:table-cell">Makine</TableHead>
+                  <TableHead className="hidden lg:table-cell">Proje</TableHead>
+                  <TableHead>Önem</TableHead>
+                  <TableHead>Durum</TableHead>
+                  <TableHead className="hidden md:table-cell">
+                    Bildiren
+                  </TableHead>
+                  <TableHead className="hidden md:table-cell">Tarih</TableHead>
+                  <TableHead className="w-36">İşlemler</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {failures.map((f, idx) => {
+                  const sev = severityConfig[f.severity] ?? {
+                    label: f.severity,
+                    cls: "bg-gray-100 text-gray-600 border-gray-200",
+                  };
+                  const st = statusConfig[f.status] ?? {
+                    label: f.status,
+                    cls: "bg-gray-100 text-gray-600 border-gray-200",
+                  };
+                  const projName = getProjectName(f.projectId);
+                  const isLinked = !!linkedFailures[f.id];
+                  const resNote = getResolutionNote((f as any).resolvedAt);
+                  return (
+                    <TableRow
+                      key={f.id}
+                      data-ocid={`maintenance.item.${idx + 1}`}
+                    >
+                      <TableCell className="font-medium">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-1.5">
+                            {f.title}
+                            {isLinked && (
+                              <span className="text-xs px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700 font-medium">
+                                Bakıma Bağlı
+                              </span>
+                            )}
+                          </div>
+                          {resNote && (
+                            <p className="text-xs text-muted-foreground italic">
+                              Çözüm: {resNote}
+                            </p>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell className="hidden md:table-cell text-muted-foreground">
+                        {f.machineId || "—"}
+                      </TableCell>
+                      <TableCell className="hidden lg:table-cell">
+                        {projName ? (
+                          <span className="text-xs px-2 py-1 rounded-full bg-indigo-100 text-indigo-700 font-medium">
+                            {projName}
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground text-xs">
+                            —
+                          </span>
                         )}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </div>
+                      </TableCell>
+                      <TableCell>
+                        <span
+                          className={`text-xs px-2 py-1 rounded-full font-medium border ${sev.cls}`}
+                        >
+                          {sev.label}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <span
+                          className={`text-xs px-2 py-1 rounded-full font-medium border ${st.cls}`}
+                        >
+                          {st.label}
+                        </span>
+                      </TableCell>
+                      <TableCell className="hidden md:table-cell text-muted-foreground">
+                        {f.reportedBy || "—"}
+                      </TableCell>
+                      <TableCell className="hidden md:table-cell text-muted-foreground">
+                        {formatDate(f.reportedAt)}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="text-xs"
+                                data-ocid={`maintenance.status.${idx + 1}`}
+                              >
+                                Durum <ChevronDown className="w-3 h-3 ml-1" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent>
+                              {statusOptions.map((s) => (
+                                <DropdownMenuItem
+                                  key={s.value}
+                                  onClick={() =>
+                                    handleStatusChange(f.id, s.value)
+                                  }
+                                >
+                                  {s.label}
+                                </DropdownMenuItem>
+                              ))}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-xs px-2"
+                            onClick={() => handleOpenLinkDialog(f)}
+                            data-ocid={`maintenance.link_button.${idx + 1}`}
+                            title="Bakım Planı Bağla"
+                          >
+                            <Link2 className="w-3.5 h-3.5" />
+                          </Button>
+                          {isAdmin && (
+                            <>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="text-xs px-2"
+                                onClick={() => openEditFailure(f)}
+                                data-ocid={`maintenance.edit_button.${idx + 1}`}
+                                title="Düzenle"
+                              >
+                                <Pencil className="w-3.5 h-3.5" />
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="text-xs px-2 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                onClick={() => {
+                                  setDeleteFailureTarget(f);
+                                  setDeleteFailureOpen(true);
+                                }}
+                                data-ocid={`maintenance.delete_button.${idx + 1}`}
+                                title="Sil"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </Button>
+                            </>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
+        </>
       )}
 
       {/* Edit Failure Dialog */}

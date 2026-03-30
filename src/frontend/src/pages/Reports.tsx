@@ -3,8 +3,27 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { useActor } from "@/hooks/useActor";
-import { BarChart3, Download, Loader2 } from "lucide-react";
+import {
+  BarChart3,
+  Download,
+  Loader2,
+  Package,
+  Printer,
+  UserCheck,
+} from "lucide-react";
 import { useEffect, useState } from "react";
+import {
+  Bar,
+  BarChart,
+  Cell,
+  Legend,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 import { toast } from "sonner";
 
 interface Props {
@@ -56,6 +75,9 @@ export default function Reports({ session }: Props) {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<ReportData | null>(null);
   const [exportLoading, setExportLoading] = useState<string | null>(null);
+  const [attendanceList, setAttendanceList] = useState<any[]>([]);
+  const [sparePartsList, setSparePartsList] = useState<any[]>([]);
+  const [allCosts, setAllCosts] = useState<any[]>([]);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: actor stabilizes after init
   useEffect(() => {
@@ -79,6 +101,14 @@ export default function Reports({ session }: Props) {
           (projects as any[]).map((p: any) => api.listTasks(p.id)),
         );
         const allTasks = (taskArrays as any[][]).flat();
+
+        const [attData, spData] = await Promise.all([
+          api.listAttendance(session.companyId).catch(() => []),
+          api.listSpareParts(session.companyId).catch(() => []),
+        ]);
+        setAttendanceList(attData as any[]);
+        setSparePartsList(spData as any[]);
+        setAllCosts(costs as any[]);
 
         const costMap: Record<string, number> = {};
         for (const c of costs as any[]) {
@@ -305,6 +335,24 @@ export default function Reports({ session }: Props) {
           </h2>
           <p className="text-muted-foreground text-sm">Operasyonel özet</p>
         </div>
+      </div>
+
+      <style>
+        {
+          "@media print { nav, header, aside, button, .no-print { display: none !important; } body { background: white !important; } }"
+        }
+      </style>
+
+      <div className="flex justify-end no-print mb-2">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => window.print()}
+          data-ocid="reports.print_button"
+        >
+          <Printer className="w-4 h-4 mr-2" />
+          Yazdır / PDF
+        </Button>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -566,6 +614,339 @@ export default function Reports({ session }: Props) {
             )}
           </CardContent>
         </Card>
+      </div>
+
+      {/* Yoklama Ozeti */}
+      <Separator />
+      <div data-ocid="reports.attendance.section">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-9 h-9 rounded-lg bg-indigo-100 flex items-center justify-center">
+            <UserCheck className="w-4 h-4 text-indigo-700" />
+          </div>
+          <div>
+            <h3
+              className="font-semibold"
+              style={{ fontFamily: "'Bricolage Grotesque', sans-serif" }}
+            >
+              Yoklama Özeti
+            </h3>
+            <p className="text-xs text-muted-foreground">
+              Bu aya ait devam kayıtları
+            </p>
+          </div>
+        </div>
+        {(() => {
+          const now = new Date();
+          const thisMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+          const todayStr = now.toISOString().slice(0, 10);
+          const monthly = attendanceList.filter((a: any) =>
+            (a.date || "").startsWith(thisMonth),
+          );
+          const absent = monthly.filter(
+            (a: any) => a.status === "Devamsız",
+          ).length;
+          const late = monthly.filter((a: any) => a.status === "Geç").length;
+          const todayIn = attendanceList.filter(
+            (a: any) => a.date === todayStr,
+          ).length;
+          return (
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              <Card
+                className="border"
+                data-ocid="reports.attendance.total.card"
+              >
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">
+                    Bu Ay Toplam Kayıt
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-3xl font-bold">{monthly.length}</p>
+                </CardContent>
+              </Card>
+              <Card
+                className="border"
+                data-ocid="reports.attendance.absent.card"
+              >
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">
+                    Bu Ay Devamsız
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p
+                    className={`text-3xl font-bold ${absent > 0 ? "text-red-600" : "text-slate-400"}`}
+                  >
+                    {absent}
+                  </p>
+                </CardContent>
+              </Card>
+              <Card className="border" data-ocid="reports.attendance.late.card">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">
+                    Bu Ay Geç Gelme
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p
+                    className={`text-3xl font-bold ${late > 0 ? "text-yellow-600" : "text-slate-400"}`}
+                  >
+                    {late}
+                  </p>
+                </CardContent>
+              </Card>
+              <Card
+                className="border"
+                data-ocid="reports.attendance.today.card"
+              >
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">
+                    Bugün Giriş
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-3xl font-bold text-green-600">{todayIn}</p>
+                </CardContent>
+              </Card>
+            </div>
+          );
+        })()}
+      </div>
+
+      {/* Yedek Parca Stok Ozeti */}
+      <Separator />
+      <div data-ocid="reports.spareparts.section">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-9 h-9 rounded-lg bg-orange-100 flex items-center justify-center">
+            <Package className="w-4 h-4 text-orange-700" />
+          </div>
+          <div>
+            <h3
+              className="font-semibold"
+              style={{ fontFamily: "'Bricolage Grotesque', sans-serif" }}
+            >
+              Yedek Parça Stok Özeti
+            </h3>
+            <p className="text-xs text-muted-foreground">
+              Stok durumu ve uyarılar
+            </p>
+          </div>
+        </div>
+        {(() => {
+          const lowStock = sparePartsList.filter(
+            (sp: any) => Number(sp.quantity ?? 0) <= Number(sp.minStock ?? 0),
+          );
+          const zeroStock = sparePartsList.filter(
+            (sp: any) => Number(sp.quantity ?? 0) === 0,
+          );
+          return (
+            <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+              <Card
+                className="border"
+                data-ocid="reports.spareparts.total.card"
+              >
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">
+                    Toplam Parça Çeşidi
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-3xl font-bold">{sparePartsList.length}</p>
+                </CardContent>
+              </Card>
+              <Card
+                className="border"
+                data-ocid="reports.spareparts.lowstock.card"
+              >
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">
+                    Düşük Stok Uyarısı
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p
+                    className={`text-3xl font-bold ${lowStock.length > 0 ? "text-yellow-600" : "text-slate-400"}`}
+                  >
+                    {lowStock.length}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Min stok altında
+                  </p>
+                </CardContent>
+              </Card>
+              <Card
+                className="border"
+                data-ocid="reports.spareparts.zerostock.card"
+              >
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">
+                    Stok Tükendi
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p
+                    className={`text-3xl font-bold ${zeroStock.length > 0 ? "text-red-600" : "text-slate-400"}`}
+                  >
+                    {zeroStock.length}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Sıfır stok
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+          );
+        })()}
+      </div>
+
+      {/* Maliyet Analizi Section */}
+      <Separator />
+      <div data-ocid="reports.cost_analysis.section">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-9 h-9 rounded-lg bg-violet-100 flex items-center justify-center">
+            <BarChart3 className="w-4 h-4 text-violet-700" />
+          </div>
+          <div>
+            <h3
+              className="font-semibold"
+              style={{ fontFamily: "'Bricolage Grotesque', sans-serif" }}
+            >
+              Maliyet Analizi
+            </h3>
+            <p className="text-xs text-muted-foreground">
+              Kategori dağılımı ve proje karşılaştırması
+            </p>
+          </div>
+        </div>
+        {allCosts.length === 0 ? (
+          <p className="text-sm text-muted-foreground py-4">
+            Henüz maliyet kaydı yok.
+          </p>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Pie chart - category breakdown */}
+            {(() => {
+              const catMap: Record<string, number> = {};
+              for (const c of allCosts) {
+                catMap[c.category || "Diğer"] =
+                  (catMap[c.category || "Diğer"] || 0) + Number(c.amount);
+              }
+              const pieData = Object.entries(catMap).map(([name, value]) => ({
+                name,
+                value,
+              }));
+              const COLORS = [
+                "#6366f1",
+                "#f59e0b",
+                "#10b981",
+                "#ef4444",
+                "#3b82f6",
+                "#8b5cf6",
+                "#ec4899",
+                "#14b8a6",
+              ];
+              return (
+                <Card className="border" data-ocid="reports.cost_pie.card">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-medium text-muted-foreground">
+                      Kategori Bazlı Dağılım
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <ResponsiveContainer width="100%" height={220}>
+                      <PieChart>
+                        <Pie
+                          data={pieData}
+                          dataKey="value"
+                          nameKey="name"
+                          cx="50%"
+                          cy="50%"
+                          outerRadius={80}
+                          label={({ name, percent }) =>
+                            `${name} ${(percent * 100).toFixed(0)}%`
+                          }
+                          labelLine={false}
+                        >
+                          {pieData.map((entry, index) => (
+                            <Cell
+                              key={entry.name}
+                              fill={COLORS[index % COLORS.length]}
+                            />
+                          ))}
+                        </Pie>
+                        <Tooltip
+                          formatter={(val: number) => formatCurrency(val)}
+                        />
+                        <Legend />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </CardContent>
+                </Card>
+              );
+            })()}
+
+            {/* Bar chart - top 5 projects by cost */}
+            {(() => {
+              const projMap: Record<string, number> = {};
+              for (const c of allCosts) {
+                projMap[c.projectId] =
+                  (projMap[c.projectId] || 0) + Number(c.amount);
+              }
+              const projNames: Record<string, string> = {};
+              if (data) {
+                for (const p of data.topCostProjects) {
+                  projNames[p.name] = p.name;
+                }
+              }
+              const barData = Object.entries(projMap)
+                .map(([id, total]) => ({ id, total }))
+                .sort((a, b) => b.total - a.total)
+                .slice(0, 5)
+                .map((item, i) => ({
+                  name: data?.topCostProjects[i]?.name || `Proje ${i + 1}`,
+                  total: item.total,
+                }));
+              return (
+                <Card className="border" data-ocid="reports.cost_bar.card">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-medium text-muted-foreground">
+                      En Yüksek Maliyetli 5 Proje
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <ResponsiveContainer width="100%" height={220}>
+                      <BarChart
+                        data={barData}
+                        layout="vertical"
+                        margin={{ left: 8, right: 16, top: 4, bottom: 4 }}
+                      >
+                        <XAxis
+                          type="number"
+                          tick={{ fontSize: 10 }}
+                          tickFormatter={(v) => `₺${(v / 1000).toFixed(0)}K`}
+                        />
+                        <YAxis
+                          type="category"
+                          dataKey="name"
+                          tick={{ fontSize: 10 }}
+                          width={90}
+                        />
+                        <Tooltip
+                          formatter={(val: number) => formatCurrency(val)}
+                        />
+                        <Bar
+                          dataKey="total"
+                          fill="#6366f1"
+                          radius={[0, 4, 4, 0]}
+                        />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </CardContent>
+                </Card>
+              );
+            })()}
+          </div>
+        )}
       </div>
 
       {/* CSV Export Section */}

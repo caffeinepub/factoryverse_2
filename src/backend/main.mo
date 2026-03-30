@@ -245,6 +245,18 @@ actor {
     createdAt : Timestamp;
   };
 
+
+  public type ShiftId = Text;
+  public type Shift = {
+    id : ShiftId;
+    companyId : CompanyId;
+    personnelId : PersonnelId;
+    shiftType : Text;
+    date : Text;
+    note : Text;
+    createdAt : Timestamp;
+  };
+
   public type AuthenticatedUser = {
     companyId : ?CompanyId;
     personnelId : ?PersonnelId;
@@ -304,6 +316,9 @@ actor {
   var nextAttendanceId = 1;
   let sparePartStore = Map.empty<SparePartId, SparePart>();
   var nextSparePartId = 1;
+  let shiftStore = Map.empty<ShiftId, Shift>();
+  var nextShiftId = 1;
+  let projectBudgetStore = Map.empty<ProjectId, Float>();
 
   func getNextCompanyId() : CompanyId {
     let id = nextCompanyId.toText();
@@ -1587,5 +1602,66 @@ actor {
     };
   };
 
+
+
+  // Shift Management module
+  public shared ({ caller }) func addShift(companyId : Text, personnelId : Text, shiftType : Text, date : Text, note : Text) : async Text {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized");
+    };
+    verifyCompanyAccess(caller, companyId);
+    let id = "shift-" # nextShiftId.toText();
+    nextShiftId += 1;
+    let s : Shift = { id; companyId; personnelId; shiftType; date; note; createdAt = Time.now() };
+    shiftStore.add(id, s);
+    id;
+  };
+
+  public query ({ caller }) func listShifts(companyId : Text) : async [Shift] {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized");
+    };
+    verifyCompanyAccess(caller, companyId);
+    shiftStore.values().toArray().filter(func(s) { s.companyId == companyId });
+  };
+
+  public shared ({ caller }) func updateShift(shiftId : Text, shiftType : Text, date : Text, note : Text) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized");
+    };
+    switch (shiftStore.get(shiftId)) {
+      case (null) { Runtime.trap("Shift not found.") };
+      case (?s) {
+        verifyCompanyAccess(caller, s.companyId);
+        let updated : Shift = { s with shiftType; date; note };
+        shiftStore.add(shiftId, updated);
+      };
+    };
+  };
+
+  public shared ({ caller }) func deleteShift(shiftId : Text) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized");
+    };
+    switch (shiftStore.get(shiftId)) {
+      case (null) { Runtime.trap("Shift not found.") };
+      case (?s) {
+        verifyCompanyAccess(caller, s.companyId);
+        shiftStore.remove(shiftId);
+      };
+    };
+  };
+
+
+  public shared ({ caller }) func setProjectBudget(projectId : Text, budget : Float) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized");
+    };
+    projectBudgetStore.add(projectId, budget);
+  };
+
+  public query ({ caller }) func getProjectBudget(projectId : Text) : async ?Float {
+    projectBudgetStore.get(projectId);
+  };
 
 };
