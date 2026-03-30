@@ -468,9 +468,6 @@ actor {
     id : CompanyId;
     adminCode : Code;
   } {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only authenticated users can register companies");
-    };
     if (name.size() > 30) { Runtime.trap("Company name too long, max 30 chars.") };
     if (mode.size() > 15) { Runtime.trap("Mode too long, max 15 chars.") };
     switch (principalToCompany.get(caller)) {
@@ -496,9 +493,6 @@ actor {
     loginCode : Code;
     inviteCode : Code;
   } {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only authenticated users can register as personnel");
-    };
     if (name.size() > 30) { Runtime.trap("Personnel name too long, max 30 chars.") };
     if (role.size() > 15) { Runtime.trap("Role too long, max 15 chars.") };
     switch (principalToPersonnel.get(caller)) {

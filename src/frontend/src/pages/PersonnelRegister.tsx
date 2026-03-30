@@ -11,8 +11,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useActor } from "@/hooks/useActor";
-import { useInternetIdentity } from "@/hooks/useInternetIdentity";
-import { ArrowLeft, CheckCircle2, Copy, Loader2, Shield } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Copy, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -22,8 +21,6 @@ interface Props {
 
 export default function PersonnelRegister({ navigate }: Props) {
   const { actor, isFetching: actorFetching } = useActor();
-  const { identity, login, isLoggingIn, isInitializing } =
-    useInternetIdentity();
   const [name, setName] = useState("");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<{
@@ -68,8 +65,6 @@ export default function PersonnelRegister({ navigate }: Props) {
     }
   };
 
-  const isAuthLoading = isInitializing || isLoggingIn || actorFetching;
-
   return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
       <div className="w-full max-w-md">
@@ -112,107 +107,53 @@ export default function PersonnelRegister({ navigate }: Props) {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {/* Step 1: Identity authentication */}
-              {!identity ? (
-                <div className="space-y-4">
-                  <Alert className="bg-blue-50 border-blue-200">
-                    <AlertDescription className="text-blue-800 text-sm">
-                      🔐 Kayıt olmak için önce güvenli kimliğinizi doğrulamanız
-                      gerekiyor. Bu işlem tek seferlik yapılır ve verilerinizi
-                      korur.
-                    </AlertDescription>
-                  </Alert>
-                  <div className="flex flex-col items-center gap-3 py-4">
-                    <Shield className="w-10 h-10 text-primary opacity-80" />
-                    <p className="text-sm text-center text-muted-foreground">
-                      Internet Identity ile kimliğinizi doğrulayın, ardından
-                      sisteme personel olarak kayıt olun.
-                    </p>
-                    <Button
-                      type="button"
-                      className="w-full"
-                      onClick={login}
-                      disabled={isAuthLoading}
-                      data-ocid="personnel_register.ii_login.button"
-                    >
-                      {isAuthLoading ? (
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      ) : (
-                        <Shield className="w-4 h-4 mr-2" />
-                      )}
-                      {isAuthLoading
-                        ? "Bağlanıyor..."
-                        : "Internet Identity ile Bağlan"}
-                    </Button>
+              <div className="space-y-4">
+                <Alert className="bg-blue-50 border-blue-200">
+                  <AlertDescription className="text-blue-800 text-sm">
+                    ℹ️ Kaydınız tamamlandıktan sonra sistem size 2 kod verecek.{" "}
+                    <strong>Davet kodunuzu</strong> yöneticinize iletin;
+                    yöneticiniz sizi şirkete ekleyecektir.
+                  </AlertDescription>
+                </Alert>
+                <form onSubmit={handleSubmit} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="fullname">Ad Soyad</Label>
+                    <Input
+                      id="fullname"
+                      placeholder="Ahmet Yılmaz"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      data-ocid="personnel_register.name.input"
+                    />
                   </div>
-                  <p className="text-center text-sm text-muted-foreground">
-                    Giriş kodunuz var mı?{" "}
-                    <button
-                      type="button"
-                      onClick={() => navigate("login")}
-                      className="text-primary hover:underline font-medium"
-                      data-ocid="personnel_register.login.link"
-                    >
-                      Giriş Yap
-                    </button>
-                  </p>
-                </div>
-              ) : (
-                /* Step 2: Registration form */
-                <div className="space-y-4">
-                  <Alert className="bg-blue-50 border-blue-200">
-                    <AlertDescription className="text-blue-800 text-sm">
-                      ℹ️ Kaydınız tamamlandıktan sonra sistem size 2 kod verecek.{" "}
-                      <strong>Davet kodunuzu</strong> yöneticinize iletin;
-                      yöneticiniz sizi şirkete ekleyecektir.
-                    </AlertDescription>
-                  </Alert>
-                  <Alert className="bg-green-50 border-green-200">
-                    <AlertDescription className="text-green-800 text-sm flex items-center gap-1">
-                      <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
-                      Kimlik doğrulandı. Kayıt formunu doldurun.
-                    </AlertDescription>
-                  </Alert>
-                  <form onSubmit={handleSubmit} className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="fullname">Ad Soyad</Label>
-                      <Input
-                        id="fullname"
-                        placeholder="Ahmet Yılmaz"
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
-                        data-ocid="personnel_register.name.input"
-                      />
-                    </div>
-                    <Button
-                      type="submit"
-                      className="w-full"
-                      disabled={loading || actorFetching}
-                      data-ocid="personnel_register.submit_button"
-                    >
-                      {loading || actorFetching ? (
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      ) : null}
-                      {loading
-                        ? "Kaydediliyor..."
-                        : actorFetching
-                          ? "Hazırlanıyor..."
-                          : "Kayıt Ol"}
-                    </Button>
-                  </form>
-                  <p className="text-center text-sm text-muted-foreground">
-                    Giriş kodunuz var mı?{" "}
-                    <button
-                      type="button"
-                      onClick={() => navigate("login")}
-                      className="text-primary hover:underline font-medium"
-                      data-ocid="personnel_register.login.link"
-                    >
-                      Giriş Yap
-                    </button>
-                  </p>
-                </div>
-              )}
+                  <Button
+                    type="submit"
+                    className="w-full"
+                    disabled={loading || actorFetching}
+                    data-ocid="personnel_register.submit_button"
+                  >
+                    {loading || actorFetching ? (
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    ) : null}
+                    {loading
+                      ? "Kaydediliyor..."
+                      : actorFetching
+                        ? "Hazırlanıyor..."
+                        : "Kayıt Ol"}
+                  </Button>
+                </form>
+                <p className="text-center text-sm text-muted-foreground">
+                  Giriş kodunuz var mı?{" "}
+                  <button
+                    type="button"
+                    onClick={() => navigate("login")}
+                    className="text-primary hover:underline font-medium"
+                    data-ocid="personnel_register.login.link"
+                  >
+                    Giriş Yap
+                  </button>
+                </p>
+              </div>
             </CardContent>
           </Card>
         ) : (

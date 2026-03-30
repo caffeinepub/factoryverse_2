@@ -18,8 +18,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useActor } from "@/hooks/useActor";
-import { useInternetIdentity } from "@/hooks/useInternetIdentity";
-import { ArrowLeft, CheckCircle2, Copy, Loader2, Shield } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Copy, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -29,8 +28,6 @@ interface Props {
 
 export default function CompanyRegister({ navigate }: Props) {
   const { actor, isFetching: actorFetching } = useActor();
-  const { identity, login, isLoggingIn, isInitializing } =
-    useInternetIdentity();
   const [name, setName] = useState("");
   const [mode, setMode] = useState("");
   const [loading, setLoading] = useState(false);
@@ -75,8 +72,6 @@ export default function CompanyRegister({ navigate }: Props) {
     }
   };
 
-  const isAuthLoading = isInitializing || isLoggingIn || actorFetching;
-
   return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
       <div className="w-full max-w-md">
@@ -119,115 +114,61 @@ export default function CompanyRegister({ navigate }: Props) {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {/* Step 1: Identity authentication */}
-              {!identity ? (
-                <div className="space-y-4">
-                  <Alert className="bg-blue-50 border-blue-200">
-                    <AlertDescription className="text-blue-800 text-sm">
-                      🔐 Kayıt olmak için önce güvenli kimliğinizi doğrulamanız
-                      gerekiyor. Bu işlem tek seferlik yapılır ve verilerinizi
-                      korur.
-                    </AlertDescription>
-                  </Alert>
-                  <div className="flex flex-col items-center gap-3 py-4">
-                    <Shield className="w-10 h-10 text-primary opacity-80" />
-                    <p className="text-sm text-center text-muted-foreground">
-                      Internet Identity ile kimliğinizi doğrulayın, ardından
-                      şirketinizi kaydedin.
-                    </p>
-                    <Button
-                      type="button"
-                      className="w-full"
-                      onClick={login}
-                      disabled={isAuthLoading}
-                      data-ocid="company_register.ii_login.button"
-                    >
-                      {isAuthLoading ? (
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      ) : (
-                        <Shield className="w-4 h-4 mr-2" />
-                      )}
-                      {isAuthLoading
-                        ? "Bağlanıyor..."
-                        : "Internet Identity ile Bağlan"}
-                    </Button>
-                  </div>
-                  <p className="text-center text-sm text-muted-foreground">
-                    Zaten hesabınız var mı?{" "}
-                    <button
-                      type="button"
-                      onClick={() => navigate("login")}
-                      className="text-primary hover:underline font-medium"
-                      data-ocid="company_register.login.link"
-                    >
-                      Giriş Yap
-                    </button>
-                  </p>
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="company-name">Şirket Adı</Label>
+                  <Input
+                    id="company-name"
+                    placeholder="FactoryTech A.Ş."
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    data-ocid="company_register.name.input"
+                  />
                 </div>
-              ) : (
-                /* Step 2: Registration form */
-                <form onSubmit={handleSubmit} className="space-y-4">
-                  <Alert className="bg-green-50 border-green-200">
-                    <AlertDescription className="text-green-800 text-sm flex items-center gap-1">
-                      <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
-                      Kimlik doğrulandı. Şirketinizi kaydedebilirsiniz.
-                    </AlertDescription>
-                  </Alert>
-                  <div className="space-y-2">
-                    <Label htmlFor="company-name">Şirket Adı</Label>
-                    <Input
-                      id="company-name"
-                      placeholder="FactoryTech A.Ş."
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      data-ocid="company_register.name.input"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Operasyon Modu</Label>
-                    <Select onValueChange={setMode}>
-                      <SelectTrigger data-ocid="company_register.mode.select">
-                        <SelectValue placeholder="Mod seçin" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="relocation">
-                          Taşıma (Relocation)
-                        </SelectItem>
-                        <SelectItem value="greenfield">
-                          Kurulum (Greenfield)
-                        </SelectItem>
-                        <SelectItem value="hybrid">Hibrit</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <Button
-                    type="submit"
-                    className="w-full"
-                    disabled={loading || actorFetching}
-                    data-ocid="company_register.submit_button"
+                <div className="space-y-2">
+                  <Label>Operasyon Modu</Label>
+                  <Select onValueChange={setMode}>
+                    <SelectTrigger data-ocid="company_register.mode.select">
+                      <SelectValue placeholder="Mod seçin" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="relocation">
+                        Taşıma (Relocation)
+                      </SelectItem>
+                      <SelectItem value="greenfield">
+                        Kurulum (Greenfield)
+                      </SelectItem>
+                      <SelectItem value="hybrid">Hibrit</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button
+                  type="submit"
+                  className="w-full"
+                  disabled={loading || actorFetching}
+                  data-ocid="company_register.submit_button"
+                >
+                  {loading || actorFetching ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : null}
+                  {loading
+                    ? "Kaydediliyor..."
+                    : actorFetching
+                      ? "Hazırlanıyor..."
+                      : "Şirket Kur"}
+                </Button>
+                <p className="text-center text-sm text-muted-foreground">
+                  Zaten hesabınız var mı?{" "}
+                  <button
+                    type="button"
+                    onClick={() => navigate("login")}
+                    className="text-primary hover:underline font-medium"
+                    data-ocid="company_register.login.link"
                   >
-                    {loading || actorFetching ? (
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    ) : null}
-                    {loading
-                      ? "Kaydediliyor..."
-                      : actorFetching
-                        ? "Hazırlanıyor..."
-                        : "Şirket Kur"}
-                  </Button>
-                  <p className="text-center text-sm text-muted-foreground">
-                    Zaten hesabınız var mı?{" "}
-                    <button
-                      type="button"
-                      onClick={() => navigate("login")}
-                      className="text-primary hover:underline font-medium"
-                      data-ocid="company_register.login.link"
-                    >
-                      Giriş Yap
-                    </button>
-                  </p>
-                </form>
-              )}
+                    Giriş Yap
+                  </button>
+                </p>
+              </form>
             </CardContent>
           </Card>
         ) : (
