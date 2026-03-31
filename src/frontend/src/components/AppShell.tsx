@@ -268,7 +268,7 @@ export default function AppShell({
             <Factory className="w-4 h-4 text-primary-foreground" />
           </div>
           <span
-            className="font-bold text-lg text-sidebar-foreground"
+            className="font-bold text-lg text-white"
             style={{ fontFamily: "'Bricolage Grotesque', sans-serif" }}
           >
             FactoryVerse
@@ -276,7 +276,7 @@ export default function AppShell({
         </div>
       </div>
 
-      <Separator className="bg-sidebar-border" />
+      <Separator className="bg-white/10" />
 
       {/* Nav */}
       <nav
@@ -300,7 +300,7 @@ export default function AppShell({
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                 active
                   ? "bg-primary text-primary-foreground"
-                  : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground"
+                  : "text-slate-300 hover:bg-white/10 hover:text-white"
               }`}
               data-ocid={`nav.${item.id}.link`}
             >
@@ -313,22 +313,22 @@ export default function AppShell({
 
       {/* User info + logout */}
       <div className="px-3 pb-4">
-        <Separator className="bg-sidebar-border mb-4" />
+        <Separator className="bg-white/10 mb-4" />
         <div className="flex items-center gap-3 px-2 mb-3">
           <Avatar className="w-8 h-8">
-            <AvatarFallback className="bg-sidebar-accent text-sidebar-foreground text-xs">
+            <AvatarFallback className="bg-white/20 text-white text-xs">
               {session.personnelId?.slice(0, 2).toUpperCase() || "FV"}
             </AvatarFallback>
           </Avatar>
           <div className="flex-1 min-w-0">
-            <p className="text-sidebar-foreground text-xs font-medium truncate">
+            <p className="text-white text-xs font-medium truncate">
               {session.companyId
                 ? `${session.companyId.slice(0, 10)}...`
                 : "Kullanıcı"}
             </p>
             <Badge
               variant="secondary"
-              className="text-xs px-1.5 py-0 bg-sidebar-accent text-sidebar-foreground/70 border-0"
+              className="text-xs px-1.5 py-0 bg-white/20 text-slate-300 border-0"
             >
               {roleLabel}
             </Badge>
@@ -337,7 +337,7 @@ export default function AppShell({
         <Button
           variant="ghost"
           size="sm"
-          className="w-full justify-start text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent"
+          className="w-full justify-start text-slate-400 hover:text-white hover:bg-white/10"
           onClick={onLogout}
           data-ocid="nav.logout.button"
         >
