@@ -80,7 +80,6 @@ export default function PersonnelPage({ session }: Props) {
   const isAdmin = session.role === "companyAdmin" || session.role === "admin";
 
   // Add form state
-  const [adminCode, setAdminCode] = useState("");
   const [inviteCode, setInviteCode] = useState("");
   const [role, setRole] = useState("");
   const [loading, setLoading] = useState(false);
@@ -131,7 +130,7 @@ export default function PersonnelPage({ session }: Props) {
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!adminCode || !inviteCode || !role) {
+    if (!inviteCode || !role) {
       toast.error("Tüm alanlar zorunludur.");
       return;
     }
@@ -141,14 +140,15 @@ export default function PersonnelPage({ session }: Props) {
     }
     setLoading(true);
     try {
-      await api.addPersonnelToCompany(adminCode, inviteCode, role);
+      await api.addPersonnelToCompany(session.companyId, inviteCode, role);
       toast.success("Personel şirkete başarıyla eklendi!");
-      setAdminCode("");
       setInviteCode("");
       setRole("");
       await loadPersonnel();
     } catch {
-      toast.error("Personel eklenirken hata oluştu. Kodları kontrol edin.");
+      toast.error(
+        "Personel eklenirken hata oluştu. Davet kodunu kontrol edin.",
+      );
     } finally {
       setLoading(false);
     }
@@ -556,27 +556,6 @@ export default function PersonnelPage({ session }: Props) {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleAdd} className="space-y-4">
-            <Alert className="bg-amber-50 border-amber-200">
-              <AlertDescription className="text-amber-800 text-sm">
-                ⚠️ Yönetici kodunuz giriş kodunuzla aynıdır. Şirket kaydı
-                sırasında aldığınız kodu kullanın.
-              </AlertDescription>
-            </Alert>
-
-            <div className="space-y-2">
-              <Label htmlFor="admin-code">
-                Yönetici Kodunuz (Admin Kodu) *
-              </Label>
-              <Input
-                id="admin-code"
-                value={adminCode}
-                onChange={(e) => setAdminCode(e.target.value.toUpperCase())}
-                placeholder="Yönetici giriş kodunuz"
-                className="font-mono tracking-wider"
-                data-ocid="personnel.admin_code.input"
-              />
-            </div>
-
             <div className="space-y-2">
               <Label htmlFor="invite-code">Personel Davet Kodu *</Label>
               <Input

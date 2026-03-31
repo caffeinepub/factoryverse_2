@@ -186,7 +186,7 @@ export const idlService = IDL.Service({
       [IDL.Text],
       [],
     ),
-  'addPersonnelToCompany' : IDL.Func([Code, Code, IDL.Text], [], []),
+  'addPersonnelToCompany' : IDL.Func([IDL.Text, Code, IDL.Text], [], []),
   'addProjectCost' : IDL.Func(
       [
         IDL.Text,
@@ -491,7 +491,7 @@ export const idlFactory = ({ IDL }) => {
         [IDL.Text],
         [],
       ),
-    'addPersonnelToCompany' : IDL.Func([Code, Code, IDL.Text], [], []),
+    'addPersonnelToCompany' : IDL.Func([IDL.Text, Code, IDL.Text], [], []),
     'addProjectCost' : IDL.Func(
         [
           IDL.Text,

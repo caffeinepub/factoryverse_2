@@ -183,7 +183,7 @@ export interface backendInterface {
     addHseRecord(companyId: string, hseType: string, title: string, description: string, severity: string, reportedBy: string): Promise<string>;
     addMachine(companyId: string, name: string, machineType: string, serialNumber: string, location: string, notes: string): Promise<string>;
     addMaintenancePlan(companyId: string, machineId: string, title: string, description: string, frequency: string, nextDate: string, assignedTo: string): Promise<string>;
-    addPersonnelToCompany(adminCode: Code, inviteCode: Code, role: string): Promise<void>;
+    addPersonnelToCompany(companyId: string, inviteCode: Code, role: string): Promise<void>;
     addProjectCost(companyId: string, projectId: string, title: string, category: string, amount: number, currency: string, description: string, createdBy: string): Promise<string>;
     addShipment(companyId: string, title: string, machineId: string, fromLocation: string, toLocation: string, carrier: string, shipDate: string, estimatedDelivery: string, notes: string): Promise<string>;
     addTask(projectId: string, companyId: string, title: string, assigneeId: string, dueDate: string, priority: string): Promise<bigint>;

@@ -318,6 +318,8 @@ actor {
   var nextSparePartId = 1;
   let shiftStore = Map.empty<ShiftId, Shift>();
   var nextShiftId = 1;
+  var nextPersonnelId = 1;
+  var nextMachineId = 1;
   var codeCounter : Nat = 0;
   let projectBudgetStore = Map.empty<ProjectId, Float>();
 
@@ -328,11 +330,15 @@ actor {
   };
 
   func getNextPersonnelId() : Text {
-    Time.now().toText();
+    let id = nextPersonnelId.toText();
+    nextPersonnelId += 1;
+    id;
   };
 
   func getNextMachineId() : MachineId {
-    Time.now().toText();
+    let id = nextMachineId.toText();
+    nextMachineId += 1;
+    id;
   };
 
   func getNextProjectId() : ProjectId {
@@ -540,21 +546,18 @@ actor {
     { loginCode; inviteCode };
   };
 
-  public shared ({ caller }) func addPersonnelToCompany(adminCode : Code, inviteCode : Code, role : Text) : async () {
-    if (role.size() > 15) { Runtime.trap("Role taken, max 15 chars.") };
-    let company = companies.values().find(func(comp) { comp.adminCode == adminCode });
+  public shared func addPersonnelToCompany(companyId : CompanyId, inviteCode : Code, role : Text) : async () {
+    if (role.size() > 15) { Runtime.trap("Role too long, max 15 chars.") };
+    let company = companies.get(companyId);
     let personnelOption = personnel.values().find(func(pers) { pers.inviteCode == inviteCode });
     switch (company, personnelOption) {
       case (null, _) { Runtime.trap("Company not found") };
-      case (_, null) { Runtime.trap("Personnel not found, wrong code. ") };
-      case (?company, ?person) {
-        if (not isCallerCompanyAdmin(caller, company.id)) {
-          Runtime.trap("Unauthorized: Only company admin can add personnel");
-        };
+      case (_, null) { Runtime.trap("Personnel not found, wrong invite code.") };
+      case (?comp, ?person) {
         if (person.companyId != null) {
           Runtime.trap("Personnel already assigned to a company.");
         } else {
-          let updatedPersonnel : Personnel = { id = person.id; companyId = ?company.id; name = person.name; role; loginCode = person.loginCode; inviteCode = person.inviteCode; createdAt = person.createdAt };
+          let updatedPersonnel : Personnel = { id = person.id; companyId = ?comp.id; name = person.name; role; loginCode = person.loginCode; inviteCode = person.inviteCode; createdAt = person.createdAt };
           personnel.add(person.id, updatedPersonnel);
         };
       };
