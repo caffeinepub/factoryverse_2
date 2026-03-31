@@ -484,21 +484,26 @@ actor {
   } {
     if (name.size() > 30) { Runtime.trap("Company name too long, max 30 chars.") };
     if (mode.size() > 15) { Runtime.trap("Mode too long, max 15 chars.") };
-    switch (principalToCompany.get(caller)) {
-      case (?_) { Runtime.trap("User already registered a company") };
-      case null {};
+    let isAnon = caller.isAnonymous();
+    if (not isAnon) {
+      switch (principalToCompany.get(caller)) {
+        case (?_) { Runtime.trap("User already registered a company") };
+        case null {};
+      };
     };
     let id = getNextCompanyId();
     let adminCode = generateUniqueCode();
     let company : Company = { id; name; mode; adminCode; createdAt = Time.now() };
     companies.add(id, company);
-    principalToCompany.add(caller, id);
-    switch (userProfiles.get(caller)) {
-      case (?profile) {
-        let updatedProfile : UserProfile = { name = profile.name; email = profile.email; personnelId = profile.personnelId; companyId = ?id };
-        userProfiles.add(caller, updatedProfile);
+    if (not isAnon) { principalToCompany.add(caller, id) };
+    if (not isAnon) {
+      switch (userProfiles.get(caller)) {
+        case (?profile) {
+          let updatedProfile : UserProfile = { name = profile.name; email = profile.email; personnelId = profile.personnelId; companyId = ?id };
+          userProfiles.add(caller, updatedProfile);
+        };
+        case null {};
       };
-      case null {};
     };
     { id; adminCode };
   };
@@ -509,9 +514,12 @@ actor {
   } {
     if (name.size() > 30) { Runtime.trap("Personnel name too long, max 30 chars.") };
     if (role.size() > 15) { Runtime.trap("Role too long, max 15 chars.") };
-    switch (principalToPersonnel.get(caller)) {
-      case (?_) { Runtime.trap("User already registered as personnel") };
-      case null {};
+    let isAnon = caller.isAnonymous();
+    if (not isAnon) {
+      switch (principalToPersonnel.get(caller)) {
+        case (?_) { Runtime.trap("User already registered as personnel") };
+        case null {};
+      };
     };
     let id = getNextPersonnelId();
     let loginCode = generateUniqueCode();
@@ -519,13 +527,15 @@ actor {
     let personnelRecord : Personnel = { id; companyId = null; name; role; loginCode; inviteCode; createdAt = Time.now() };
     if (checkPersonnelExists(id)) { Runtime.trap("Personnel already exists.") };
     personnel.add(id, personnelRecord);
-    principalToPersonnel.add(caller, id);
-    switch (userProfiles.get(caller)) {
-      case (?profile) {
-        let updatedProfile : UserProfile = { name = profile.name; email = profile.email; personnelId = ?id; companyId = profile.companyId };
-        userProfiles.add(caller, updatedProfile);
+    if (not isAnon) { principalToPersonnel.add(caller, id) };
+    if (not isAnon) {
+      switch (userProfiles.get(caller)) {
+        case (?profile) {
+          let updatedProfile : UserProfile = { name = profile.name; email = profile.email; personnelId = ?id; companyId = profile.companyId };
+          userProfiles.add(caller, updatedProfile);
+        };
+        case null {};
       };
-      case null {};
     };
     { loginCode; inviteCode };
   };
