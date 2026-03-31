@@ -42,7 +42,19 @@ actor {
     createdAt : Timestamp;
   };
 
+  // V1 Personnel type (without title) - kept for stable variable migration
+  type PersonnelV1 = {
+    id : PersonnelId;
+    companyId : ?CompanyId;
+    name : Text;
+    role : Text;
+    loginCode : Code;
+    inviteCode : Code;
+    createdAt : Timestamp;
+  };
+
   public type Personnel = {
+    title : Text;
     id : PersonnelId;
     companyId : ?CompanyId;
     name : Text;
@@ -277,7 +289,8 @@ actor {
   };
 
   let companies = Map.empty<CompanyId, Company>();
-  let personnel = Map.empty<PersonnelId, Personnel>();
+  let personnel = Map.empty<PersonnelId, PersonnelV1>(); // legacy stable var for migration
+  let personnelMap = Map.empty<PersonnelId, Personnel>(); // current stable var with title field
   let machines = Map.empty<MachineId, Machine>();
   let projects = Map.empty<ProjectId, Project>();
   let taskStore = Map.empty<TaskId, Task>();
@@ -419,7 +432,7 @@ actor {
   };
 
   func checkPersonnelExists(id : PersonnelId) : Bool {
-    personnel.containsKey(id);
+    personnelMap.containsKey(id);
   };
 
   func checkMachineExists(id : MachineId) : Bool {
@@ -437,7 +450,7 @@ actor {
   func getCallerCompanyId(caller : Principal) : ?CompanyId {
     switch (principalToPersonnel.get(caller)) {
       case (?personnelId) {
-        switch (personnel.get(personnelId)) {
+        switch (personnelMap.get(personnelId)) {
           case (?person) { person.companyId };
           case null { null };
         };
@@ -514,7 +527,7 @@ actor {
     { id; adminCode };
   };
 
-  public shared ({ caller }) func selfRegisterPersonnel(name : Text, role : Text) : async {
+  public shared ({ caller }) func selfRegisterPersonnel(name : Text, role : Text, title : Text) : async {
     loginCode : Code;
     inviteCode : Code;
   } {
@@ -530,9 +543,9 @@ actor {
     let id = getNextPersonnelId();
     let loginCode = generateUniqueCode();
     let inviteCode = generateUniqueCode();
-    let personnelRecord : Personnel = { id; companyId = null; name; role; loginCode; inviteCode; createdAt = Time.now() };
+    let personnelRecord : Personnel = { id; companyId = null; name; title; role; loginCode; inviteCode; createdAt = Time.now() };
     if (checkPersonnelExists(id)) { Runtime.trap("Personnel already exists.") };
-    personnel.add(id, personnelRecord);
+    personnelMap.add(id, personnelRecord);
     if (not isAnon) { principalToPersonnel.add(caller, id) };
     if (not isAnon) {
       switch (userProfiles.get(caller)) {
@@ -549,7 +562,7 @@ actor {
   public shared func addPersonnelToCompany(companyId : CompanyId, inviteCode : Code, role : Text) : async () {
     if (role.size() > 15) { Runtime.trap("Role too long, max 15 chars.") };
     let company = companies.get(companyId);
-    let personnelOption = personnel.values().find(func(pers) { pers.inviteCode == inviteCode });
+    let personnelOption = personnelMap.values().find(func(pers) { pers.inviteCode == inviteCode });
     switch (company, personnelOption) {
       case (null, _) { Runtime.trap("Company not found") };
       case (_, null) { Runtime.trap("Personnel not found, wrong invite code.") };
@@ -557,15 +570,15 @@ actor {
         if (person.companyId != null) {
           Runtime.trap("Personnel already assigned to a company.");
         } else {
-          let updatedPersonnel : Personnel = { id = person.id; companyId = ?comp.id; name = person.name; role; loginCode = person.loginCode; inviteCode = person.inviteCode; createdAt = person.createdAt };
-          personnel.add(person.id, updatedPersonnel);
+          let updatedPersonnel : Personnel = { id = person.id; companyId = ?comp.id; name = person.name; title = person.title; role; loginCode = person.loginCode; inviteCode = person.inviteCode; createdAt = person.createdAt };
+          personnelMap.add(person.id, updatedPersonnel);
         };
       };
     };
   };
 
   public query ({ caller }) func authenticate(code : Code) : async ?AuthenticatedUser {
-    switch (personnel.values().find(func(user) { user.loginCode == code })) {
+    switch (personnelMap.values().find(func(user) { user.loginCode == code })) {
       case (?user) {
         ?{ companyId = user.companyId; personnelId = ?user.id; role = ?user.role };
       };
@@ -813,7 +826,7 @@ actor {
       case (?_) { Runtime.trap("Personnel already assigned to this project.") };
       case null {};
     };
-    let personnelName = switch (personnel.get(personnelId)) {
+    let personnelName = switch (personnelMap.get(personnelId)) {
       case (?p) { p.name };
       case null { personnelId };
     };
@@ -837,7 +850,7 @@ actor {
   };
 
   public query ({ caller }) func listCompanyPersonnel(companyId : Text) : async [Personnel] {
-    personnel.values().toArray().filter(func(p) {
+    personnelMap.values().toArray().filter(func(p) {
       switch (p.companyId) {
         case (?cid) { cid == companyId };
         case null { false };
@@ -925,21 +938,21 @@ actor {
   };
 
   // Personnel update/delete
-  public shared ({ caller }) func updatePersonnel(personnelId : Text, name : Text, role : Text) : async () {
-    switch (personnel.get(personnelId)) {
+  public shared ({ caller }) func updatePersonnel(personnelId : Text, name : Text, role : Text, title : Text) : async () {
+    switch (personnelMap.get(personnelId)) {
       case (null) { Runtime.trap("Personnel not found.") };
       case (?p) {
-        let updated : Personnel = { p with name; role };
-        personnel.add(personnelId, updated);
+        let updated : Personnel = { p with name; role; title };
+        personnelMap.add(personnelId, updated);
       };
     };
   };
 
   public shared ({ caller }) func deletePersonnel(personnelId : Text) : async () {
-    switch (personnel.get(personnelId)) {
+    switch (personnelMap.get(personnelId)) {
       case (null) { Runtime.trap("Personnel not found.") };
       case (?p) {
-        personnel.remove(personnelId);
+        personnelMap.remove(personnelId);
       };
     };
   };
@@ -1199,7 +1212,7 @@ actor {
 
   // Reset personnel login code
   public shared ({ caller }) func resetPersonnelLoginCode(personnelId : Text) : async Text {
-    switch (personnel.get(personnelId)) {
+    switch (personnelMap.get(personnelId)) {
       case (null) { Runtime.trap("Personnel not found.") };
       case (?p) {
         switch (p.companyId) {
@@ -1207,7 +1220,7 @@ actor {
           case (?cid) {
                     let newCode = generateUniqueCode();
             let updated : Personnel = { p with loginCode = newCode };
-            personnel.add(personnelId, updated);
+            personnelMap.add(personnelId, updated);
             newCode;
           };
         };
@@ -1352,5 +1365,25 @@ actor {
   public query ({ caller }) func getProjectBudget(projectId : Text) : async ?Float {
     projectBudgetStore.get(projectId);
   };
+
+  // Migrate personnel data from V1 (no title) to current (with title)
+  system func postupgrade() {
+    if (personnelMap.size() == 0 and personnel.size() > 0) {
+      for (p in personnel.values()) {
+        let migrated : Personnel = {
+          id = p.id;
+          companyId = p.companyId;
+          name = p.name;
+          title = "";
+          role = p.role;
+          loginCode = p.loginCode;
+          inviteCode = p.inviteCode;
+          createdAt = p.createdAt;
+        };
+        personnelMap.add(p.id, migrated);
+      };
+    };
+  };
+
 
 };

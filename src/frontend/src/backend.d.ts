@@ -101,6 +101,7 @@ export interface FailureWithProject {
     companyId: CompanyId;
 }
 export interface Personnel {
+    title: string;
     id: PersonnelId;
     loginCode: Code;
     name: string;
@@ -218,7 +219,7 @@ export interface backendInterface {
     }>;
     removePersonnelFromProject(assignmentId: string): Promise<void>;
     saveCallerUserProfile(profile: UserProfile): Promise<void>;
-    selfRegisterPersonnel(name: string, role: string): Promise<{
+    selfRegisterPersonnel(name: string, role: string, title: string): Promise<{
         loginCode: Code;
         inviteCode: Code;
     }>;
@@ -236,7 +237,7 @@ export interface backendInterface {
     listAllTasks(companyId: string): Promise<Array<Task>>;
     listSuppliers(companyId: string): Promise<Array<Supplier>>;
     resolveFailure(failureId: string, resolutionNote: string): Promise<void>;
-    updatePersonnel(personnelId: string, name: string, role: string): Promise<void>;
+    updatePersonnel(personnelId: string, name: string, role: string, title: string): Promise<void>;
     updateSupplier(supplierId: string, name: string, category: string, contactName: string, contactPhone: string, contactEmail: string, address: string, notes: string): Promise<void>;
     updateSupplierStatus(supplierId: string, status: string): Promise<void>;
     updateTask(taskId: bigint, title: string, assigneeId: string, dueDate: string, priority: string): Promise<void>;

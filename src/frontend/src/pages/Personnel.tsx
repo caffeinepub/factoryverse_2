@@ -93,6 +93,7 @@ export default function PersonnelPage({ session }: Props) {
   const [editTarget, setEditTarget] = useState<Personnel | null>(null);
   const [editName, setEditName] = useState("");
   const [editRole, setEditRole] = useState("");
+  const [editTitle, setEditTitle] = useState("");
   const [editSubmitting, setEditSubmitting] = useState(false);
 
   // Delete confirm
@@ -158,6 +159,7 @@ export default function PersonnelPage({ session }: Props) {
     setEditTarget(p);
     setEditName(p.name);
     setEditRole(p.role);
+    setEditTitle((p as any).title || "");
     setEditOpen(true);
   };
 
@@ -165,11 +167,18 @@ export default function PersonnelPage({ session }: Props) {
     if (!editTarget || !api) return;
     setEditSubmitting(true);
     try {
-      await api.updatePersonnel(editTarget.id, editName, editRole);
+      await api.updatePersonnel(editTarget.id, editName, editRole, editTitle);
       toast.success("Personel güncellendi.");
       setPersonnel((prev) =>
         prev.map((p) =>
-          p.id === editTarget.id ? { ...p, name: editName, role: editRole } : p,
+          p.id === editTarget.id
+            ? ({
+                ...p,
+                name: editName,
+                role: editRole,
+                title: editTitle,
+              } as any)
+            : p,
         ),
       );
       setEditOpen(false);
@@ -216,9 +225,10 @@ export default function PersonnelPage({ session }: Props) {
   const handleExportCsv = () => {
     downloadCsv(
       "personel.csv",
-      ["Ad Soyad", "Rol", "Giriş Kodu", "Davet Kodu"],
+      ["Ad Soyad", "Unvan", "Rol", "Giriş Kodu", "Davet Kodu"],
       personnel.map((p) => [
         p.name || "",
+        (p as any).title || "",
         roleLabelMap[p.role] ?? p.role,
         p.loginCode || "",
         p.inviteCode || "",
@@ -284,6 +294,7 @@ export default function PersonnelPage({ session }: Props) {
                 <TableHeader>
                   <TableRow className="bg-muted/50">
                     <TableHead>Ad Soyad</TableHead>
+                    <TableHead>Unvan</TableHead>
                     <TableHead>Rol</TableHead>
                     <TableHead className="hidden md:table-cell">
                       Giriş Kodu
@@ -304,6 +315,9 @@ export default function PersonnelPage({ session }: Props) {
                     >
                       <TableCell className="font-medium">
                         {p.name || "—"}
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {(p as any).title || "—"}
                       </TableCell>
                       <TableCell>
                         <span className="text-xs px-2 py-1 rounded-full bg-indigo-100 text-indigo-700 font-medium">
@@ -433,6 +447,15 @@ export default function PersonnelPage({ session }: Props) {
                 onChange={(e) => setEditName(e.target.value)}
                 placeholder="Ad Soyad"
                 data-ocid="personnel.edit.name.input"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Unvan</Label>
+              <Input
+                value={editTitle}
+                onChange={(e) => setEditTitle(e.target.value)}
+                placeholder="Unvan (örn: Üretim Mühendisi)"
+                data-ocid="personnel.edit.title.input"
               />
             </div>
             <div className="space-y-1.5">

@@ -22,6 +22,7 @@ interface Props {
 export default function PersonnelRegister({ navigate }: Props) {
   const { actor, isFetching: actorFetching } = useActor();
   const [name, setName] = useState("");
+  const [title, setTitle] = useState("");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<{
     loginCode: string;
@@ -48,13 +49,21 @@ export default function PersonnelRegister({ navigate }: Props) {
       toast.error("Ad Soyad gereklidir.");
       return;
     }
+    if (!title.trim()) {
+      toast.error("Unvan gereklidir.");
+      return;
+    }
     if (!actor || actorFetching) {
       toast.error("Bağlantı kuruluyor, lütfen bekleyin.");
       return;
     }
     setLoading(true);
     try {
-      const res = await actor.selfRegisterPersonnel(name.trim(), "user");
+      const res = await actor.selfRegisterPersonnel(
+        name.trim(),
+        "user",
+        title.trim(),
+      );
       setResult(res);
       toast.success("Kayıt başarılı! Kodlarınız hazır.");
     } catch (err) {
@@ -124,6 +133,16 @@ export default function PersonnelRegister({ navigate }: Props) {
                       value={name}
                       onChange={(e) => setName(e.target.value)}
                       data-ocid="personnel_register.name.input"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="title">Unvan *</Label>
+                    <Input
+                      id="title"
+                      placeholder="Örn: Üretim Mühendisi, Saha Teknisyeni..."
+                      value={title}
+                      onChange={(e) => setTitle(e.target.value)}
+                      data-ocid="personnel_register.title.input"
                     />
                   </div>
                   <Button

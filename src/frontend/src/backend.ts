@@ -281,7 +281,7 @@ export interface backendInterface {
     }>;
     removePersonnelFromProject(assignmentId: string): Promise<void>;
     saveCallerUserProfile(profile: UserProfile): Promise<void>;
-    selfRegisterPersonnel(name: string, role: string): Promise<{
+    selfRegisterPersonnel(name: string, role: string, title: string): Promise<{
         loginCode: Code;
         inviteCode: Code;
     }>;
@@ -299,7 +299,7 @@ export interface backendInterface {
     listAllTasks(companyId: string): Promise<Array<Task>>;
     listSuppliers(companyId: string): Promise<Array<Supplier>>;
     resolveFailure(failureId: string, resolutionNote: string): Promise<void>;
-    updatePersonnel(personnelId: string, name: string, role: string): Promise<void>;
+    updatePersonnel(personnelId: string, name: string, role: string, title: string): Promise<void>;
     updateSupplier(supplierId: string, name: string, category: string, contactName: string, contactPhone: string, contactEmail: string, address: string, notes: string): Promise<void>;
     updateSupplierStatus(supplierId: string, status: string): Promise<void>;
     updateTask(taskId: bigint, title: string, assigneeId: string, dueDate: string): Promise<void>;
@@ -842,20 +842,20 @@ export class Backend implements backendInterface {
             return result;
         }
     }
-    async selfRegisterPersonnel(arg0: string, arg1: string): Promise<{
+    async selfRegisterPersonnel(arg0: string, arg1: string, arg2: string): Promise<{
         loginCode: Code;
         inviteCode: Code;
     }> {
         if (this.processError) {
             try {
-                const result = await this.actor.selfRegisterPersonnel(arg0, arg1);
+                const result = await this.actor.selfRegisterPersonnel(arg0, arg1, arg2);
                 return result;
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
-            const result = await this.actor.selfRegisterPersonnel(arg0, arg1);
+            const result = await this.actor.selfRegisterPersonnel(arg0, arg1, arg2);
             return result;
         }
     }
@@ -989,8 +989,8 @@ export class Backend implements backendInterface {
     async resolveFailure(arg0: string, arg1: string): Promise<void> {
         if (this.processError) { try { return await this.actor.resolveFailure(arg0,arg1); } catch(e) { this.processError(e); throw new Error("unreachable"); } } else { return await this.actor.resolveFailure(arg0,arg1); }
     }
-    async updatePersonnel(arg0: string, arg1: string, arg2: string): Promise<void> {
-        if (this.processError) { try { return await this.actor.updatePersonnel(arg0,arg1,arg2); } catch(e) { this.processError(e); throw new Error("unreachable"); } } else { return await this.actor.updatePersonnel(arg0,arg1,arg2); }
+    async updatePersonnel(arg0: string, arg1: string, arg2: string, arg3: string): Promise<void> {
+        if (this.processError) { try { return await this.actor.updatePersonnel(arg0,arg1,arg2,arg3); } catch(e) { this.processError(e); throw new Error("unreachable"); } } else { return await this.actor.updatePersonnel(arg0,arg1,arg2,arg3); }
     }
     async updateSupplier(arg0: string, arg1: string, arg2: string, arg3: string, arg4: string, arg5: string, arg6: string, arg7: string): Promise<void> {
         if (this.processError) { try { return await this.actor.updateSupplier(arg0,arg1,arg2,arg3,arg4,arg5,arg6,arg7); } catch(e) { this.processError(e); throw new Error("unreachable"); } } else { return await this.actor.updateSupplier(arg0,arg1,arg2,arg3,arg4,arg5,arg6,arg7); }

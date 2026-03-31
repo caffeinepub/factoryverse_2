@@ -222,7 +222,7 @@ export interface _SERVICE {
   'removePersonnelFromProject' : ActorMethod<[string], undefined>,
   'saveCallerUserProfile' : ActorMethod<[UserProfile], undefined>,
   'selfRegisterPersonnel' : ActorMethod<
-    [string, string],
+    [string, string, string],
     { 'loginCode' : Code, 'inviteCode' : Code }
   >,
   'updateFailureStatus' : ActorMethod<[string, string], undefined>,
@@ -242,7 +242,7 @@ export interface _SERVICE {
   'listAllTasks' : ActorMethod<[string], Array<Task>>,
   'listSuppliers' : ActorMethod<[string], Array<{id:string,companyId:string,name:string,category:string,contactName:string,contactPhone:string,contactEmail:string,address:string,notes:string,status:string,createdAt:bigint}>>,
   'resolveFailure' : ActorMethod<[string, string], undefined>,
-  'updatePersonnel' : ActorMethod<[string, string, string], undefined>,
+  'updatePersonnel' : ActorMethod<[string, string, string, string], undefined>,
   'updateSupplier' : ActorMethod<[string, string, string, string, string, string, string, string], undefined>,
   'updateSupplierStatus' : ActorMethod<[string, string], undefined>,
   'updateTask' : ActorMethod<[bigint, string, string, string], undefined>,
