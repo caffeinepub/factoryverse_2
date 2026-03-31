@@ -1001,6 +1001,69 @@ export class Backend implements backendInterface {
     async updateTask(arg0: bigint, arg1: string, arg2: string, arg3: string): Promise<void> {
         if (this.processError) { try { return await this.actor.updateTask(arg0,arg1,arg2,arg3); } catch(e) { this.processError(e); throw new Error("unreachable"); } } else { return await this.actor.updateTask(arg0,arg1,arg2,arg3); }
     }
+    async addSupplierRating(arg0: string, arg1: string, arg2: bigint, arg3: string): Promise<string> {
+        if (this.processError) { try { return await (this.actor as any).addSupplierRating(arg0,arg1,arg2,arg3); } catch(e) { this.processError(e); throw new Error("unreachable"); } } else { return await (this.actor as any).addSupplierRating(arg0,arg1,arg2,arg3); }
+    }
+    async listSupplierRatings(arg0: string): Promise<Array<any>> {
+        if (this.processError) { try { return await (this.actor as any).listSupplierRatings(arg0); } catch(e) { this.processError(e); throw new Error("unreachable"); } } else { return await (this.actor as any).listSupplierRatings(arg0); }
+    }
+    async getSupplierAverageRating(arg0: string): Promise<bigint | null> {
+        if (this.processError) { try { const r = await (this.actor as any).getSupplierAverageRating(arg0); return r.length > 0 ? r[0] : null; } catch(e) { this.processError(e); throw new Error("unreachable"); } } else { const r = await (this.actor as any).getSupplierAverageRating(arg0); return r.length > 0 ? r[0] : null; }
+    }
+    async deleteSupplierRating(arg0: string): Promise<void> {
+        if (this.processError) { try { return await (this.actor as any).deleteSupplierRating(arg0); } catch(e) { this.processError(e); throw new Error("unreachable"); } } else { return await (this.actor as any).deleteSupplierRating(arg0); }
+    }
+    async addAttendance(arg0: string, arg1: string, arg2: string, arg3: string, arg4: string): Promise<string> {
+        if (this.processError) { try { return await (this.actor as any).addAttendance(arg0,arg1,arg2,arg3,arg4); } catch(e) { this.processError(e); throw new Error("unreachable"); } } else { return await (this.actor as any).addAttendance(arg0,arg1,arg2,arg3,arg4); }
+    }
+    async listAttendance(arg0: string): Promise<Array<any>> {
+        if (this.processError) { try { return await (this.actor as any).listAttendance(arg0); } catch(e) { this.processError(e); throw new Error("unreachable"); } } else { return await (this.actor as any).listAttendance(arg0); }
+    }
+    async updateAttendance(arg0: string, arg1: string, arg2: string): Promise<void> {
+        if (this.processError) { try { return await (this.actor as any).updateAttendance(arg0,arg1,arg2); } catch(e) { this.processError(e); throw new Error("unreachable"); } } else { return await (this.actor as any).updateAttendance(arg0,arg1,arg2); }
+    }
+    async deleteAttendance(arg0: string): Promise<void> {
+        if (this.processError) { try { return await (this.actor as any).deleteAttendance(arg0); } catch(e) { this.processError(e); throw new Error("unreachable"); } } else { return await (this.actor as any).deleteAttendance(arg0); }
+    }
+    async addSparePart(arg0: string, arg1: string, arg2: string, arg3: string, arg4: bigint, arg5: string, arg6: bigint, arg7: string, arg8: string): Promise<string> {
+        if (this.processError) { try { return await (this.actor as any).addSparePart(arg0,arg1,arg2,arg3,arg4,arg5,arg6,arg7,arg8); } catch(e) { this.processError(e); throw new Error("unreachable"); } } else { return await (this.actor as any).addSparePart(arg0,arg1,arg2,arg3,arg4,arg5,arg6,arg7,arg8); }
+    }
+    async listSpareParts(arg0: string): Promise<Array<any>> {
+        if (this.processError) { try { return await (this.actor as any).listSpareParts(arg0); } catch(e) { this.processError(e); throw new Error("unreachable"); } } else { return await (this.actor as any).listSpareParts(arg0); }
+    }
+    async updateSparePart(arg0: string, arg1: string, arg2: string, arg3: bigint, arg4: string, arg5: bigint, arg6: string, arg7: string): Promise<void> {
+        if (this.processError) { try { return await (this.actor as any).updateSparePart(arg0,arg1,arg2,arg3,arg4,arg5,arg6,arg7); } catch(e) { this.processError(e); throw new Error("unreachable"); } } else { return await (this.actor as any).updateSparePart(arg0,arg1,arg2,arg3,arg4,arg5,arg6,arg7); }
+    }
+    async deleteSparePart(arg0: string): Promise<void> {
+        if (this.processError) { try { return await (this.actor as any).deleteSparePart(arg0); } catch(e) { this.processError(e); throw new Error("unreachable"); } } else { return await (this.actor as any).deleteSparePart(arg0); }
+    }
+    async addShift(arg0: string, arg1: string, arg2: string, arg3: string, arg4: string): Promise<string> {
+        if (this.processError) { try { return await (this.actor as any).addShift(arg0,arg1,arg2,arg3,arg4); } catch(e) { this.processError(e); throw new Error("unreachable"); } } else { return await (this.actor as any).addShift(arg0,arg1,arg2,arg3,arg4); }
+    }
+    async listShifts(arg0: string): Promise<Array<any>> {
+        if (this.processError) { try { return await (this.actor as any).listShifts(arg0); } catch(e) { this.processError(e); throw new Error("unreachable"); } } else { return await (this.actor as any).listShifts(arg0); }
+    }
+    async updateShift(arg0: string, arg1: string, arg2: string, arg3: string): Promise<void> {
+        if (this.processError) { try { return await (this.actor as any).updateShift(arg0,arg1,arg2,arg3); } catch(e) { this.processError(e); throw new Error("unreachable"); } } else { return await (this.actor as any).updateShift(arg0,arg1,arg2,arg3); }
+    }
+    async deleteShift(arg0: string): Promise<void> {
+        if (this.processError) { try { return await (this.actor as any).deleteShift(arg0); } catch(e) { this.processError(e); throw new Error("unreachable"); } } else { return await (this.actor as any).deleteShift(arg0); }
+    }
+    async setProjectBudget(arg0: string, arg1: number): Promise<void> {
+        if (this.processError) { try { return await (this.actor as any).setProjectBudget(arg0,arg1); } catch(e) { this.processError(e); throw new Error("unreachable"); } } else { return await (this.actor as any).setProjectBudget(arg0,arg1); }
+    }
+    async getProjectBudget(arg0: string): Promise<number | null> {
+        if (this.processError) { try { const r = await (this.actor as any).getProjectBudget(arg0); return r.length > 0 ? Number(r[0]) : null; } catch(e) { this.processError(e); throw new Error("unreachable"); } } else { const r = await (this.actor as any).getProjectBudget(arg0); return r.length > 0 ? Number(r[0]) : null; }
+    }
+    async addTaskNote(arg0: string, arg1: string, arg2: string, arg3: string): Promise<string> {
+        if (this.processError) { try { return await (this.actor as any).addTaskNote(arg0,arg1,arg2,arg3); } catch(e) { this.processError(e); throw new Error("unreachable"); } } else { return await (this.actor as any).addTaskNote(arg0,arg1,arg2,arg3); }
+    }
+    async listTaskNotes(arg0: string): Promise<Array<any>> {
+        if (this.processError) { try { return await (this.actor as any).listTaskNotes(arg0); } catch(e) { this.processError(e); throw new Error("unreachable"); } } else { return await (this.actor as any).listTaskNotes(arg0); }
+    }
+    async listTaskPriorities(arg0: string): Promise<Array<[bigint, string]>> {
+        if (this.processError) { try { return await (this.actor as any).listTaskPriorities(arg0); } catch(e) { this.processError(e); throw new Error("unreachable"); } } else { return await (this.actor as any).listTaskPriorities(arg0); }
+    }
 }
 function from_candid_AuthenticatedUser_n4(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: _AuthenticatedUser): AuthenticatedUser {
     return from_candid_record_n5(_uploadFile, _downloadFile, value);
