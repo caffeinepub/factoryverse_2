@@ -54,7 +54,7 @@ export default function Help() {
         >
           FactoryVerse Kullanım Kılavuzu
         </h1>
-        <p className="text-white/70 text-base max-w-xl">
+        <p className="text-white/90 text-base max-w-xl">
           Başlangıç rehberi, modül açıklamaları, rol tablosu ve sık sorulan
           sorularla uygulamayı hızlıca öğrenin.
         </p>

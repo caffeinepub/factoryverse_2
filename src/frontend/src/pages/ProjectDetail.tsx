@@ -74,15 +74,15 @@ interface Props {
 const projectStatusConfig: Record<string, { label: string; cls: string }> = {
   Planning: { label: "Planlama", cls: "bg-blue-100 text-blue-700" },
   Active: { label: "Aktif", cls: "bg-green-100 text-green-700" },
-  Completed: { label: "Tamamlandı", cls: "bg-gray-100 text-gray-600" },
+  Completed: { label: "Tamamlandı", cls: "bg-gray-100 text-gray-700" },
   OnHold: { label: "Beklemede", cls: "bg-orange-100 text-orange-700" },
 };
 
 const taskStatusConfig: Record<string, { label: string; cls: string }> = {
-  Todo: { label: "Yapılacak", cls: "bg-gray-100 text-gray-600" },
+  Todo: { label: "Yapılacak", cls: "bg-gray-100 text-gray-700" },
   InProgress: { label: "Devam Ediyor", cls: "bg-blue-100 text-blue-700" },
   Done: { label: "Tamamlandı", cls: "bg-green-100 text-green-700" },
-  pending: { label: "Bekliyor", cls: "bg-gray-100 text-gray-600" },
+  pending: { label: "Bekliyor", cls: "bg-gray-100 text-gray-700" },
   "in-progress": { label: "Devam Ediyor", cls: "bg-blue-100 text-blue-700" },
   completed: { label: "Tamamlandı", cls: "bg-green-100 text-green-700" },
 };
@@ -90,11 +90,11 @@ const taskStatusConfig: Record<string, { label: string; cls: string }> = {
 const assignmentRoleConfig: Record<string, { label: string; cls: string }> = {
   Lider: { label: "Lider", cls: "bg-indigo-100 text-indigo-700" },
   Üye: { label: "Üye", cls: "bg-blue-100 text-blue-700" },
-  Gözlemci: { label: "Gözlemci", cls: "bg-gray-100 text-gray-600" },
+  Gözlemci: { label: "Gözlemci", cls: "bg-gray-100 text-gray-700" },
 };
 
 const severityConfig: Record<string, { label: string; cls: string }> = {
-  low: { label: "Düşük", cls: "bg-gray-100 text-gray-600" },
+  low: { label: "Düşük", cls: "bg-gray-100 text-gray-700" },
   medium: { label: "Orta", cls: "bg-yellow-100 text-yellow-700" },
   high: { label: "Yüksek", cls: "bg-orange-100 text-orange-700" },
   critical: { label: "Kritik", cls: "bg-red-100 text-red-700" },
@@ -110,7 +110,7 @@ function StatusBadge({
   status,
   cfg,
 }: { status: string; cfg: Record<string, { label: string; cls: string }> }) {
-  const c = cfg[status] ?? { label: status, cls: "bg-gray-100 text-gray-600" };
+  const c = cfg[status] ?? { label: status, cls: "bg-gray-100 text-gray-700" };
   return (
     <span className={`text-xs px-2 py-1 rounded-full font-medium ${c.cls}`}>
       {c.label}
@@ -347,7 +347,7 @@ export default function ProjectDetail({ session, projectId, navigate }: Props) {
 
   const statusCfg = projectStatusConfig[project.status] ?? {
     label: project.status,
-    cls: "bg-gray-100 text-gray-600",
+    cls: "bg-gray-100 text-gray-700",
   };
 
   const totalCost = sum();
@@ -784,11 +784,11 @@ export default function ProjectDetail({ session, projectId, navigate }: Props) {
             {failures.map((f, idx) => {
               const sev = severityConfig[f.severity] ?? {
                 label: f.severity,
-                cls: "bg-gray-100 text-gray-600",
+                cls: "bg-gray-100 text-gray-700",
               };
               const st = failureStatusConfig[f.status] ?? {
                 label: f.status,
-                cls: "bg-gray-100 text-gray-600",
+                cls: "bg-gray-100 text-gray-700",
               };
               return (
                 <Card
@@ -927,7 +927,7 @@ export default function ProjectDetail({ session, projectId, navigate }: Props) {
                               ? "bg-orange-100 text-orange-700"
                               : c.category === "Ekipman"
                                 ? "bg-purple-100 text-purple-700"
-                                : "bg-gray-100 text-gray-600"
+                                : "bg-gray-100 text-gray-700"
                         }`}
                       >
                         {c.category}

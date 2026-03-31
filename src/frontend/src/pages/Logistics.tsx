@@ -461,7 +461,7 @@ export default function Logistics({ session }: Props) {
                 {filtered.map((ship, idx) => {
                   const st = statusMap[ship.status] ?? {
                     label: ship.status,
-                    cls: "bg-gray-100 text-gray-600",
+                    cls: "bg-gray-100 text-gray-700",
                   };
                   return (
                     <div
@@ -582,7 +582,7 @@ export default function Logistics({ session }: Props) {
                     {filtered.map((ship, idx) => {
                       const st = statusMap[ship.status] ?? {
                         label: ship.status,
-                        cls: "bg-gray-100 text-gray-600",
+                        cls: "bg-gray-100 text-gray-700",
                       };
                       return (
                         <TableRow

@@ -28,7 +28,7 @@ interface Props {
 const projectStatusConfig: Record<string, { label: string; cls: string }> = {
   Planning: { label: "Planlama", cls: "bg-blue-100 text-blue-700" },
   Active: { label: "Aktif", cls: "bg-green-100 text-green-700" },
-  Completed: { label: "Tamamlandı", cls: "bg-gray-100 text-gray-600" },
+  Completed: { label: "Tamamlandı", cls: "bg-gray-100 text-gray-700" },
   OnHold: { label: "Beklemede", cls: "bg-orange-100 text-orange-700" },
 };
 
@@ -36,7 +36,7 @@ function StatusBadge({
   status,
   cfg,
 }: { status: string; cfg: Record<string, { label: string; cls: string }> }) {
-  const c = cfg[status] ?? { label: status, cls: "bg-gray-100 text-gray-600" };
+  const c = cfg[status] ?? { label: status, cls: "bg-gray-100 text-gray-700" };
   return (
     <span className={`text-xs px-2 py-1 rounded-full font-medium ${c.cls}`}>
       {c.label}

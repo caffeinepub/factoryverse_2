@@ -43,7 +43,7 @@ const STATUS_COLORS: Record<string, { bar: string; badge: string }> = {
   Planning: { bar: "bg-blue-400", badge: "bg-blue-100 text-blue-700" },
   Active: { bar: "bg-indigo-500", badge: "bg-indigo-100 text-indigo-700" },
   OnHold: { bar: "bg-orange-400", badge: "bg-orange-100 text-orange-700" },
-  Completed: { bar: "bg-gray-400", badge: "bg-gray-100 text-gray-600" },
+  Completed: { bar: "bg-gray-400", badge: "bg-gray-100 text-gray-700" },
 };
 
 const TASK_COLORS: Record<string, string> = {

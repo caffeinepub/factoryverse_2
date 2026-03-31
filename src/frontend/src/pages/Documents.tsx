@@ -41,7 +41,7 @@ interface Props {
 const categoryMap: Record<string, { label: string; cls: string }> = {
   teknik: { label: "Teknik", cls: "bg-blue-100 text-blue-700" },
   sözleşme: { label: "Sözleşme", cls: "bg-purple-100 text-purple-700" },
-  diğer: { label: "Diğer", cls: "bg-gray-100 text-gray-600" },
+  diğer: { label: "Diğer", cls: "bg-gray-100 text-gray-700" },
 };
 
 function formatDate(ts: bigint): string {
@@ -339,7 +339,7 @@ export default function Documents({ session }: Props) {
                   {filteredDocs.map((doc, idx) => {
                     const cat = categoryMap[doc.category] ?? {
                       label: doc.category,
-                      cls: "bg-gray-100 text-gray-600",
+                      cls: "bg-gray-100 text-gray-700",
                     };
                     return (
                       <TableRow

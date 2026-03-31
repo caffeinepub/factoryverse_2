@@ -59,7 +59,7 @@ const statusConfig: Record<string, { label: string; cls: string }> = {
   },
   Idle: {
     label: "Beklemede",
-    cls: "bg-gray-100 text-gray-600 border-gray-200",
+    cls: "bg-gray-100 text-gray-700 border-gray-200",
   },
   Decommissioned: {
     label: "Hizmet Dışı",
@@ -309,7 +309,7 @@ export default function Machines({ session }: Props) {
   const StatusBadge = ({ status }: { status: string }) => {
     const cfg = statusConfig[status] ?? {
       label: status,
-      cls: "bg-gray-100 text-gray-600 border-gray-200",
+      cls: "bg-gray-100 text-gray-700 border-gray-200",
     };
     return (
       <span

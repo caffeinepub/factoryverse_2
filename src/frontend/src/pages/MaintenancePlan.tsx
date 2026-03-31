@@ -509,7 +509,7 @@ export default function MaintenancePlanPage({ session }: Props) {
                   {plans.map((plan) => {
                     const st = statusConfig[plan.status] ?? {
                       label: plan.status,
-                      cls: "bg-gray-100 text-gray-600",
+                      cls: "bg-gray-100 text-gray-700",
                     };
                     const today = new Date().toISOString().split("T")[0];
                     const overdue =

@@ -227,7 +227,7 @@ export default function Attendance({ session }: Props) {
               >
                 Yoklama Takibi
               </h2>
-              <p className="text-white/80 text-sm">{records.length} kayıt</p>
+              <p className="text-white text-sm">{records.length} kayıt</p>
             </div>
           </div>
           {isAdmin && (
@@ -567,7 +567,7 @@ export default function Attendance({ session }: Props) {
               {filtered.map((r, idx) => {
                 const scfg = statusConfig[r.status] ?? {
                   label: r.status,
-                  cls: "bg-gray-100 text-gray-600 border-gray-200",
+                  cls: "bg-gray-100 text-gray-700 border-gray-200",
                 };
                 return (
                   <TableRow key={r.id} data-ocid={`attendance.item.${idx + 1}`}>

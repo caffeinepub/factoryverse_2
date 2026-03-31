@@ -145,11 +145,11 @@ const maintenanceStatusConfig: Record<string, { label: string; cls: string }> =
     },
     completed: {
       label: "Tamamlandı",
-      cls: "bg-gray-100 text-gray-600 border-gray-200",
+      cls: "bg-gray-100 text-gray-700 border-gray-200",
     },
     Completed: {
       label: "Tamamlandı",
-      cls: "bg-gray-100 text-gray-600 border-gray-200",
+      cls: "bg-gray-100 text-gray-700 border-gray-200",
     },
     pending: {
       label: "Bekliyor",
@@ -171,7 +171,7 @@ const frequencyLabel: Record<string, string> = {
 const machineStatusConfig: Record<string, { label: string; cls: string }> = {
   Active: { label: "Aktif", cls: "bg-green-100 text-green-700" },
   Maintenance: { label: "Bakımda", cls: "bg-yellow-100 text-yellow-700" },
-  Idle: { label: "Beklemede", cls: "bg-gray-100 text-gray-600" },
+  Idle: { label: "Beklemede", cls: "bg-gray-100 text-gray-700" },
   Decommissioned: { label: "Hizmet Dışı", cls: "bg-red-100 text-red-700" },
 };
 
@@ -184,7 +184,7 @@ function StatusPill({
 }) {
   const cfg = config[status] ?? {
     label: status,
-    cls: "bg-gray-100 text-gray-600 border-gray-200",
+    cls: "bg-gray-100 text-gray-700 border-gray-200",
   };
   return (
     <span
@@ -299,7 +299,7 @@ export default function MachineDetail({ session, machineId, navigate }: Props) {
 
   const statusCfg = machineStatusConfig[machine.status] ?? {
     label: machine.status,
-    cls: "bg-gray-100 text-gray-600",
+    cls: "bg-gray-100 text-gray-700",
   };
 
   const today = new Date().toISOString().split("T")[0];

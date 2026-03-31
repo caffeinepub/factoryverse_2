@@ -385,7 +385,7 @@ export default function Reports({ session }: Props) {
                 <span className="font-medium">{data.machineMaintenance}</span>
               </div>
               <div className="flex items-center justify-between text-xs">
-                <span className="text-gray-500">Beklemede</span>
+                <span className="text-gray-700">Beklemede</span>
                 <span className="font-medium">{data.machineIdle}</span>
               </div>
             </div>
@@ -587,7 +587,7 @@ export default function Reports({ session }: Props) {
                               i === 0
                                 ? "bg-yellow-100 text-yellow-700"
                                 : i === 1
-                                  ? "bg-gray-100 text-gray-600"
+                                  ? "bg-gray-100 text-gray-700"
                                   : "bg-orange-100 text-orange-600"
                             }`}
                           >

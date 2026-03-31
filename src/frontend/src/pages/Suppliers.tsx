@@ -689,7 +689,7 @@ export default function Suppliers({ session }: Props) {
                         className={`text-xs px-2 py-1 rounded-full font-medium border ${
                           s.status === "active"
                             ? "bg-green-100 text-green-700 border-green-200"
-                            : "bg-gray-100 text-gray-600 border-gray-200"
+                            : "bg-gray-100 text-gray-700 border-gray-200"
                         }`}
                       >
                         {s.status === "active" ? "Aktif" : "Pasif"}

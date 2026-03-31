@@ -61,7 +61,7 @@ const categoryColor: Record<string, string> = {
   Malzeme: "bg-blue-100 text-blue-700",
   İşçilik: "bg-orange-100 text-orange-700",
   Ekipman: "bg-purple-100 text-purple-700",
-  Diğer: "bg-gray-100 text-gray-600",
+  Diğer: "bg-gray-100 text-gray-700",
 };
 
 const currencySymbol: Record<string, string> = { TRY: "₺", USD: "$", EUR: "€" };
@@ -371,7 +371,7 @@ export default function ProjectCosts({ session }: { session: Session }) {
                       </TableCell>
                       <TableCell>
                         <span
-                          className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${categoryColor[cost.category] ?? "bg-gray-100 text-gray-600"}`}
+                          className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${categoryColor[cost.category] ?? "bg-gray-100 text-gray-700"}`}
                         >
                           {cost.category}
                         </span>

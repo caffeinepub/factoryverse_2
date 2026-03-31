@@ -484,11 +484,11 @@ export default function HSE({ session }: Props) {
                 {records.map((rec, idx) => {
                   const t = typeMap[rec.hseType] ?? {
                     label: rec.hseType,
-                    cls: "bg-gray-100 text-gray-600",
+                    cls: "bg-gray-100 text-gray-700",
                   };
                   const s = severityMap[rec.severity] ?? {
                     label: rec.severity,
-                    cls: "bg-gray-100 text-gray-600",
+                    cls: "bg-gray-100 text-gray-700",
                   };
                   return (
                     <div
@@ -607,11 +607,11 @@ export default function HSE({ session }: Props) {
                     {records.map((rec, idx) => {
                       const t = typeMap[rec.hseType] ?? {
                         label: rec.hseType,
-                        cls: "bg-gray-100 text-gray-600",
+                        cls: "bg-gray-100 text-gray-700",
                       };
                       const s = severityMap[rec.severity] ?? {
                         label: rec.severity,
-                        cls: "bg-gray-100 text-gray-600",
+                        cls: "bg-gray-100 text-gray-700",
                       };
                       return (
                         <TableRow

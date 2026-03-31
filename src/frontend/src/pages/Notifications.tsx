@@ -325,7 +325,7 @@ export default function Notifications({ session, navigate }: Props) {
                   <span
                     className={`ml-1.5 px-1.5 py-0.5 rounded-full text-xs font-bold ${
                       activeFilter === tab.key
-                        ? "bg-white/20 text-white"
+                        ? "bg-white/30 text-white font-bold"
                         : "bg-primary/10 text-primary"
                     }`}
                   >

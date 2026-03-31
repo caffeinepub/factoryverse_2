@@ -43,7 +43,7 @@ const projectStatusMap: Record<string, { label: string; cls: string }> = {
   planning: { label: "Planlama", cls: "bg-yellow-100 text-yellow-700" },
   Planning: { label: "Planlama", cls: "bg-yellow-100 text-yellow-700" },
   OnHold: { label: "Beklemede", cls: "bg-orange-100 text-orange-700" },
-  paused: { label: "Durduruldu", cls: "bg-gray-100 text-gray-600" },
+  paused: { label: "Durduruldu", cls: "bg-gray-100 text-gray-700" },
 };
 
 export default function Dashboard({ session, navigate }: Props) {
@@ -485,7 +485,7 @@ export default function Dashboard({ session, navigate }: Props) {
                 {recentProjects.map((p, idx) => {
                   const st = projectStatusMap[p.status] ?? {
                     label: p.status,
-                    cls: "bg-gray-100 text-gray-600",
+                    cls: "bg-gray-100 text-gray-700",
                   };
                   return (
                     <Card
@@ -533,7 +533,7 @@ export default function Dashboard({ session, navigate }: Props) {
                     projectCompletionData.map((item, idx) => {
                       const st = projectStatusMap[item.project.status] ?? {
                         label: item.project.status,
-                        cls: "bg-gray-100 text-gray-600",
+                        cls: "bg-gray-100 text-gray-700",
                       };
                       return (
                         <div
@@ -599,7 +599,7 @@ export default function Dashboard({ session, navigate }: Props) {
                             ? "bg-green-100 text-green-700"
                             : m.status === "Maintenance"
                               ? "bg-yellow-100 text-yellow-700"
-                              : "bg-gray-100 text-gray-600"
+                              : "bg-gray-100 text-gray-700"
                         }`}
                       >
                         {m.status}

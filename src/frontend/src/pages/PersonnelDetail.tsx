@@ -73,11 +73,11 @@ const maintenanceStatusConfig: Record<string, { label: string; cls: string }> =
     },
     completed: {
       label: "Tamamlandı",
-      cls: "bg-gray-100 text-gray-600 border-gray-200",
+      cls: "bg-gray-100 text-gray-700 border-gray-200",
     },
     Completed: {
       label: "Tamamlandı",
-      cls: "bg-gray-100 text-gray-600 border-gray-200",
+      cls: "bg-gray-100 text-gray-700 border-gray-200",
     },
     pending: {
       label: "Bekliyor",
@@ -102,7 +102,7 @@ function StatusPill({
 }: { status: string; config: Record<string, { label: string; cls: string }> }) {
   const cfg = config[status] ?? {
     label: status,
-    cls: "bg-gray-100 text-gray-600 border-gray-200",
+    cls: "bg-gray-100 text-gray-700 border-gray-200",
   };
   return (
     <span

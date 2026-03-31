@@ -84,7 +84,7 @@ const statusOptions = Object.entries(statusConfig).map(
 const priorityConfig: Record<string, { label: string; cls: string }> = {
   low: {
     label: "D\u00fc\u015f\u00fck",
-    cls: "bg-gray-100 text-gray-600 border-gray-200",
+    cls: "bg-gray-100 text-gray-700 border-gray-200",
   },
   medium: { label: "Orta", cls: "bg-blue-100 text-blue-600 border-blue-200" },
   high: {
@@ -747,7 +747,7 @@ export default function Tasks({ session }: Props) {
             {filteredTasks.map((task, idx) => {
               const st = statusConfig[task.status] ?? {
                 label: task.status,
-                cls: "bg-gray-100 text-gray-600 border-gray-200",
+                cls: "bg-gray-100 text-gray-700 border-gray-200",
               };
               const priority = priorityMap[String(task.id)] || "medium";
               const pr = priorityConfig[priority] ?? priorityConfig.medium;
@@ -864,7 +864,7 @@ export default function Tasks({ session }: Props) {
                 {filteredTasks.map((task, idx) => {
                   const st = statusConfig[task.status] ?? {
                     label: task.status,
-                    cls: "bg-gray-100 text-gray-600 border-gray-200",
+                    cls: "bg-gray-100 text-gray-700 border-gray-200",
                   };
                   const priority = priorityMap[String(task.id)] || "medium";
                   const pr = priorityConfig[priority] ?? priorityConfig.medium;

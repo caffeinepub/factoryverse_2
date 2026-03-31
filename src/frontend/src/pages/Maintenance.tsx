@@ -71,7 +71,7 @@ interface MaintenancePlan {
 }
 
 const severityConfig: Record<string, { label: string; cls: string }> = {
-  low: { label: "Düşük", cls: "bg-gray-100 text-gray-600 border-gray-200" },
+  low: { label: "Düşük", cls: "bg-gray-100 text-gray-700 border-gray-200" },
   medium: {
     label: "Orta",
     cls: "bg-yellow-100 text-yellow-700 border-yellow-200",
@@ -725,11 +725,11 @@ export default function Maintenance({ session }: Props) {
             {failures.map((f, idx) => {
               const sev = severityConfig[f.severity] ?? {
                 label: f.severity,
-                cls: "bg-gray-100 text-gray-600 border-gray-200",
+                cls: "bg-gray-100 text-gray-700 border-gray-200",
               };
               const st = statusConfig[f.status] ?? {
                 label: f.status,
-                cls: "bg-gray-100 text-gray-600 border-gray-200",
+                cls: "bg-gray-100 text-gray-700 border-gray-200",
               };
               const projName = getProjectName(f.projectId);
               const isLinked = !!linkedFailures[f.id];
@@ -866,11 +866,11 @@ export default function Maintenance({ session }: Props) {
                 {failures.map((f, idx) => {
                   const sev = severityConfig[f.severity] ?? {
                     label: f.severity,
-                    cls: "bg-gray-100 text-gray-600 border-gray-200",
+                    cls: "bg-gray-100 text-gray-700 border-gray-200",
                   };
                   const st = statusConfig[f.status] ?? {
                     label: f.status,
-                    cls: "bg-gray-100 text-gray-600 border-gray-200",
+                    cls: "bg-gray-100 text-gray-700 border-gray-200",
                   };
                   const projName = getProjectName(f.projectId);
                   const isLinked = !!linkedFailures[f.id];

@@ -39,14 +39,14 @@ const roleBadgeColor: Record<string, string> = {
   admin: "bg-indigo-100 text-indigo-700",
   manager: "bg-blue-100 text-blue-700",
   user: "bg-green-100 text-green-700",
-  guest: "bg-gray-100 text-gray-600",
+  guest: "bg-gray-100 text-gray-700",
 };
 
 export default function Settings({ session }: Props) {
   const { actor } = useActor();
   const api = actor as any;
   const roleLabel = roleLabelMap[session.role] ?? session.role;
-  const roleCls = roleBadgeColor[session.role] ?? "bg-gray-100 text-gray-600";
+  const roleCls = roleBadgeColor[session.role] ?? "bg-gray-100 text-gray-700";
 
   const [copied, setCopied] = useState(false);
   const [machineCount, setMachineCount] = useState<number | null>(null);
